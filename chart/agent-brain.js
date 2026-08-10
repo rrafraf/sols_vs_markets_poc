@@ -1,6 +1,11 @@
 "use strict";
 
-import { rsi } from "./indicators.js";
+import {
+  rsi,
+  rsiLevel,
+  rsiDivergence,
+  rsiAcceleration
+} from "./indicators.js";
 
 export const agentSensors = [
   {
@@ -8,6 +13,32 @@ export const agentSensors = [
     name: "RSI 14",
     color: "#a371f7",
     fn: rsi
+  },
+  {
+    key: "rsi_5_state",
+    name: "RSI 5 state",
+    color: "#d2a8ff",
+    fn: rsiLevel,
+    options: { period: 5 }
+  },
+  {
+    key: "rsi_divergence",
+    name: "RSI divergence",
+    color: "#3fb950",
+    fn: rsiDivergence,
+    options: { period: 5, lookback: 8 }
+  },
+  {
+    key: "rsi_acceleration",
+    name: "RSI acceleration",
+    color: "#f0883e",
+    fn: rsiAcceleration,
+    options: {
+      period: 5,
+      smoothPeriod: 2,
+      normalizationWindow: 20,
+      clipZ: 3
+    }
   },
   {
     key: "close_change",
