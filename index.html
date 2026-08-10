@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Price Watch — windowed</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --muted: #8b949e;
+      --green: #3fb950;
+      --red: #f85149;
+      --blue: #58a6ff;
+      --accent: #1f6feb;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.55rem 1rem;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    header h1 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    #status {
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+      margin-left: auto;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background: #21262d;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.3rem 0.7rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.8rem;
+    }
+
+    button:hover {
+      background: #30363d;
+    }
+
+    #scrubber {
+      width: 160px;
+      accent-color: var(--blue);
+    }
+
+    label {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    select {
+      background: #21262d;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.25rem 0.4rem;
+      border-radius: 4px;
+      font: inherit;
+      font-size: 0.8rem;
+    }
+
+    /* History track = full DB span */
+    #hist-wrap {
+      padding: 0.45rem 1rem 0.35rem;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+    }
+
+    #hist-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+
+    #hist-track {
+      position: relative;
+      height: 14px;
+      background: #21262d;
+      border-radius: 3px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+    }
+
+    #hist-range {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      opacity: 0.85;
+      pointer-events: none;
+    }
+
+    #hist-track:hover #hist-range {
+      opacity: 1;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    #chart {
+      flex: 1;
+      min-height: 280px;
+    }
+
+    footer {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 1rem;
+      padding: 0.55rem 1rem;
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+    }
+
+    #bar-info {
+      color: var(--muted);
+    }
+
+    #agent-decision {
+      font-weight: 600;
+      padding: 0.15rem 0.5rem;
+      border-radius: 3px;
+      background: #21262d;
+    }
+
+    #agent-decision[data-action="long"] {
+      color: var(--green);
+    }
+
+    #agent-decision[data-action="short"] {
+      color: var(--red);
+    }
+
+    #agent-decision[data-action="wait"] {
+      color: var(--muted);
+    }
+
+    #progress {
+      color: var(--muted);
+    }
+
+    #fatal {
+      white-space: pre-wrap;
+      color: var(--red);
+      padding: 1rem;
+      background: #1c1214;
+      border-top: 1px solid #5c2b2b;
+    }
+
+  </style>
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+
+<body>
+  <header>
+    <h1>PRICE WATCH</h1>
+    <span id="status">starting…</span>
+    <div class="controls">
+      <button id="btn-start" title="First bar of loaded window">⏮</button>
+      <button id="btn-play">Play</button>
+      <button id="btn-end" title="Last bar of loaded window">⏭</button>
+      <input type="range" id="scrubber" min="0" max="100" value="0" />
+      <span id="progress">0 / 0</span>
+      <label>
+        window
+        <select id="window-days">
+          <option value="3">3 days</option>
+          <option value="5">5 days</option>
+          <option value="8" selected>8 days</option>
+          <option value="15">15 days</option>
+          <option value="30">30 days</option>
+        </select>
+      </label>
+      <label>
+        speed
+        <select id="speed">
+          <option value="400">slow</option>
+          <option value="120" selected>normal</option>
+          <option value="40">fast</option>
+          <option value="8">very fast</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <!-- Full history span. Click anywhere to jump the active window. -->
+  <div id="hist-wrap" hidden>
+    <div id="hist-label">full history</div>
+    <div id="hist-track" title="Click to load a window ending near this point">
+      <div id="hist-range"></div>
+    </div>
+  </div>
+
+  <main>
+    <div id="chart"></div>
+  </main>
+
+  <footer>
+    <div id="bar-info">—</div>
+    <div style="text-align:right">
+      <div style="color:var(--muted);font-size:0.7rem;margin-bottom:0.15rem">agent (empty)</div>
+      <div id="agent-decision" data-action="wait">WAIT — no rule yet</div>
+    </div>
+  </footer>
+
+  <div id="fatal" hidden></div>
+  <script src="app.js"></script>
+</body>
+
+</html>

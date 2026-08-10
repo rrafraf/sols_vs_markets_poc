@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.playwright-cli/
+output/
+*.log
+data/*.db-shm
+data/*.db-wal
+/data
+test_agent_sources/node_modules/*
+secrets copy.ps1
