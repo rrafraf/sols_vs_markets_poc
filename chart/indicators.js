@@ -3,7 +3,7 @@
 const EPSILON = 1e-12;
 
 export function rsi(bars, context = {}) {
-  const period = positiveInt(context.options?.period, rsi.indicator.period || 14);
+  const period = positiveInt(context.options?.period, 14);
   const out = [];
   if (!Array.isArray(bars) || bars.length < period + 1) return out;
 
@@ -38,14 +38,10 @@ export function rsi(bars, context = {}) {
   return out;
 }
 
-rsi.indicator = {
-  name: "RSI 14",
-  period: 14,
-  color: "#a371f7",
-  pane: "separate",
-  lineWidth: 1
-};
-
+/**
+ * RSI state normalized to [-1, +1].
+ * -1 = RSI 0, 0 = RSI 50, +1 = RSI 100.
+ */
 export function rsiLevel(bars, context = {}) {
   const period = positiveInt(context.options?.period, 5);
   return rsi(bars, { options: { period } }).map(point => ({
@@ -55,14 +51,15 @@ export function rsiLevel(bars, context = {}) {
   }));
 }
 
-rsiLevel.indicator = {
-  name: "RSI normalized",
-  period: 5,
-  color: "#d2a8ff",
-  pane: "separate",
-  lineWidth: 1
-};
-
+/**
+ * Causal RSI divergence detector.
+ *
+ * Compares the regression direction of log-price with RSI over the same
+ * trailing window. It only emits when those directions oppose each other:
+ * +1-ish = price falling while RSI rises, -1-ish = price rising while RSI falls.
+ *
+ * No future-confirmed pivots are used.
+ */
 export function rsiDivergence(bars, context = {}) {
   const period = positiveInt(context.options?.period, 5);
   const lookback = Math.max(3, positiveInt(context.options?.lookback, 8));
@@ -87,7 +84,9 @@ export function rsiDivergence(bars, context = {}) {
     const priceSlope = normalizedSlope(priceValues);
     const rsiSlope = normalizedSlope(rsiValues);
     const opposed = priceSlope * rsiSlope < 0;
-    const value = opposed ? clamp((rsiSlope - priceSlope) / 2, -1, 1) : 0;
+    const value = opposed
+      ? clamp((rsiSlope - priceSlope) / 2, -1, 1)
+      : 0;
 
     out.push({
       time: window.at(-1).time,
@@ -102,15 +101,12 @@ export function rsiDivergence(bars, context = {}) {
   return out;
 }
 
-rsiDivergence.indicator = {
-  name: "RSI divergence",
-  period: 5,
-  lookback: 8,
-  color: "#3fb950",
-  pane: "separate",
-  lineWidth: 1
-};
-
+/**
+ * Causal RSI second derivative, converted into a bounded spike signal.
+ *
+ * Output is roughly [-1, +1]. Large positive values mean RSI is curving upward
+ * unusually fast; large negative values mean it is curving downward.
+ */
 export function rsiAcceleration(bars, context = {}) {
   const period = positiveInt(context.options?.period, 5);
   const smoothPeriod = positiveInt(context.options?.smoothPeriod, 2);
@@ -120,7 +116,9 @@ export function rsiAcceleration(bars, context = {}) {
   if (points.length < 3) return [];
 
   const rawRsi = points.map(point => point.value);
-  const smoothRsi = smoothPeriod > 1 ? ema(rawRsi, smoothPeriod) : rawRsi.slice();
+  const smoothRsi = smoothPeriod > 1
+    ? ema(rawRsi, smoothPeriod)
+    : rawRsi.slice();
   const accelerations = new Array(points.length).fill(null);
 
   for (let i = 2; i < smoothRsi.length; i++) {
@@ -148,23 +146,16 @@ export function rsiAcceleration(bars, context = {}) {
   return out;
 }
 
-rsiAcceleration.indicator = {
-  name: "RSI acceleration",
-  period: 5,
-  smoothPeriod: 2,
-  normalizationWindow: 20,
-  clipZ: 3,
-  color: "#f0883e",
-  pane: "separate",
-  lineWidth: 1
-};
-
-export const indicatorRegistry = {
-  rsi,
-  rsiLevel,
-  rsiDivergence,
-  rsiAcceleration
-};
+export function closeChange(bars) {
+  return bars.map((bar, index) => {
+    if (index === 0) return null;
+    const prev = bars[index - 1].close;
+    return {
+      time: bar.time,
+      value: (bar.close - prev) / prev
+    };
+  });
+}
 
 function normalizedSlope(values) {
   const n = values.length;
@@ -203,7 +194,9 @@ function robustZScore(value, values) {
   const center = median(values);
   const deviations = values.map(v => Math.abs(v - center));
   const mad = median(deviations);
-  if (mad > EPSILON) return (value - center) / (1.4826 * mad);
+  if (mad > EPSILON) {
+    return (value - center) / (1.4826 * mad);
+  }
 
   const sigma = standardDeviation(values);
   return sigma > EPSILON ? (value - mean(values)) / sigma : 0;
@@ -229,7 +222,9 @@ function standardDeviation(values) {
 }
 
 function mean(values) {
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+  return values.length
+    ? values.reduce((sum, value) => sum + value, 0) / values.length
+    : 0;
 }
 
 function positiveInt(value, fallback) {

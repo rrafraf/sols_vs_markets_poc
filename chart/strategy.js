@@ -4,22 +4,23 @@
 // Edit `makeTradeCall(state)` to decide what the agent should do at the current candle.
 
 export function makeTradeCall(state) {
-  const rsiValue = state.sensors.rsi?.value;
-  const change = state.sensors.close_change?.value;
+  const signal = state.sensors.divergence_plus_acceleration?.value;
+  const divergence = state.sensors.rsi_divergence?.value;
+  const acceleration = state.sensors.rsi_acceleration?.value;
 
-  if (rsiValue == null || change == null) {
-    return wait("warming up sensors");
+  if (signal == null || divergence == null || acceleration == null) {
+    return wait("warming up divergence + acceleration");
   }
 
-  if (rsiValue < 30 && change > 0) {
-    return long(`RSI ${rsiValue.toFixed(1)} oversold + close turn ${pct(change)}`);
+  if (signal > 0.6) {
+    return long(`div+acc ${signal.toFixed(2)} = ${fmt(divergence)} + ${fmt(acceleration)}`);
   }
 
-  if (rsiValue > 70 && change < 0) {
-    return short(`RSI ${rsiValue.toFixed(1)} overbought + close turn ${pct(change)}`);
+  if (signal < -0.6) {
+    return short(`div+acc ${signal.toFixed(2)} = ${fmt(divergence)} + ${fmt(acceleration)}`);
   }
 
-  return wait(`RSI ${rsiValue.toFixed(1)}, close change ${pct(change)}`);
+  return wait(`div+acc ${signal.toFixed(2)} = ${fmt(divergence)} + ${fmt(acceleration)}`);
 }
 
 export function long(reason = "long") {
@@ -34,6 +35,6 @@ export function wait(reason = "wait") {
   return { action: "WAIT", reason };
 }
 
-function pct(value) {
-  return `${(value * 100).toFixed(2)}%`;
+function fmt(value) {
+  return value.toFixed(2);
 }
