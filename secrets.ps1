@@ -19,5 +19,5 @@
 #
 # ============================================================
 
-$env:APCA_API_KEY_ID = ""
-$env:APCA_API_SECRET_KEY = ""
+$env:APCA_API_KEY_ID = "PKKDOFEFZG76V2R44I47SUDSAE"
+$env:APCA_API_SECRET_KEY = "2k3Eww5dVrnavUT7bq24D3qyicL2RBGU968UnZZgtCHa"

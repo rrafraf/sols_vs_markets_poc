@@ -9,3 +9,4 @@ data/*.db-wal
 test_agent_sources/node_modules/*
 secrets copy.ps1
 secrets.ps1
+secrets.ps1
