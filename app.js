@@ -7,6 +7,8 @@ import { createPriceChart } from "./chart/price-chart.js";
 import { createWindowLoader } from "./chart/window-loader.js";
 import { createPlayback } from "./chart/playback.js";
 import { createHistoryTrack } from "./chart/history-track.js";
+import { createTradeOverlay } from "./chart/trade-overlay.js";
+import { agentSensors } from "./chart/agent-brain.js";
 import { createUi } from "./chart/ui.js";
 
 const $ = (id) => document.getElementById(id);
@@ -17,7 +19,8 @@ const priceChart = createPriceChart({ $, chartsLib: window.LightweightCharts });
 const windowLoader = createWindowLoader({ $, cfg: CFG, dataApi, priceChart });
 const playback = createPlayback({ $, windowLoader });
 const historyTrack = createHistoryTrack({ $, windowLoader, playback });
-const ui = createUi({ $, cfg: CFG, agent, windowLoader, playback, historyTrack });
+const tradeOverlay = createTradeOverlay({ dataApi, priceChart, windowLoader });
+const ui = createUi({ $, cfg: CFG, agent, priceChart, windowLoader, playback, historyTrack, tradeOverlay });
 
 async function main() {
   try {
@@ -28,6 +31,14 @@ async function main() {
     historyTrack.setMeta(meta);
 
     priceChart.init();
+    for (const sensor of agentSensors) {
+      priceChart.add_sensor(sensor.fn, {
+        name: sensor.name,
+        color: sensor.color,
+        ...(sensor.options || {})
+      });
+    }
+    await tradeOverlay.load();
     ui.bind();
 
     if (meta) {

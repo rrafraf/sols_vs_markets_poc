@@ -1,11 +1,11 @@
 "use strict";
 
-export function createAgent() {
+import { agentSensors, buildDecisionFrame, decide } from "./agent-brain.js";
+
+export function createAgent(sensors = agentSensors) {
   return {
     decide(index, bars) {
-      void index;
-      void bars;
-      return { action: "WAIT", reason: "no rule yet" };
+      return decide(buildDecisionFrame(index, bars, sensors));
     }
   };
 }

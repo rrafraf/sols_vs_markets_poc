@@ -48,7 +48,13 @@ export function createDataApi(cfg) {
     return raw.map(normalizeBar).sort((a, b) => a.time - b.time);
   }
 
-  return { fetchMeta, fetchBars };
+  async function fetchAgentGrind() {
+    const res = await fetch("/api/agent/grind");
+    if (!res.ok) return null;
+    return res.json();
+  }
+
+  return { fetchMeta, fetchBars, fetchAgentGrind };
 }
 
 function normalizeBar(b) {

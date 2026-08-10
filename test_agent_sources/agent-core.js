@@ -196,6 +196,7 @@ function simulate(candles, sensorFn, userConfig = {}) {
           notional,
           quantity,
           entryIndex: i,
+          atr: pending.atr,
           stop:
             side === "LONG"
               ? entry - stopDist
@@ -258,9 +259,11 @@ function simulate(candles, sensorFn, userConfig = {}) {
         position.lowest = Math.min(position.lowest, bar.close);
 
         if (position.side === "LONG") {
-          const trail = position.highest - pending?.atr * cfg.trailing_stop_atr;
-          // We need ATR; recompute roughly from recent range if needed
-          position.stop = Math.max(position.stop, position.highest - (position.entry - position.stop));
+          const trail = position.highest - position.atr * cfg.trailing_stop_atr;
+          position.stop = Math.max(position.stop, trail);
+        } else {
+          const trail = position.lowest + position.atr * cfg.trailing_stop_atr;
+          position.stop = Math.min(position.stop, trail);
         }
 
         const held = i - position.entryIndex;

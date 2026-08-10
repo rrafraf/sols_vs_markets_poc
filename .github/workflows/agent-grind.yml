@@ -1,0 +1,90 @@
+name: Agent Grind
+
+on:
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: Number of config runs
+        default: "64"
+        required: true
+      workers:
+        description: Worker threads
+        default: "4"
+        required: true
+      limit:
+        description: Max candles to load
+        default: "30000"
+        required: true
+      from:
+        description: Optional start timestamp/date
+        default: ""
+        required: false
+      to:
+        description: Optional end timestamp/date
+        default: ""
+        required: false
+  schedule:
+    - cron: "17 */6 * * *"
+
+jobs:
+  grind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Check engine scripts
+        run: |
+          node --check test_agent_sources/agent-core.js
+          node --check test_agent_sources/grind-agent-core.js
+          node --check test_agent_sources/report-agent-grind.js
+
+      - name: Run synthetic smoke test
+        run: node test_agent_sources/test-agent-core.js
+
+      - name: Run real-data grind when SQLite DB exists
+        id: grind
+        shell: bash
+        run: |
+          mkdir -p output
+          if [ ! -f data/market.db ]; then
+            {
+              echo "# Agent Grind Report"
+              echo
+              echo "Verdict: NO_DATA"
+              echo
+              echo "GitHub runner does not have data/market.db. The synthetic smoke test ran, but real TSLA grind was skipped."
+              echo
+              echo "Use a self-hosted runner with data/market.db, or add a safe data-fetch/restore step before this can produce real trade candidates."
+            } > output/agent-grind-report.md
+            echo "has_data=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          node test_agent_sources/grind-agent-core.js \
+            --runs "${{ github.event.inputs.runs || '64' }}" \
+            --workers "${{ github.event.inputs.workers || '4' }}" \
+            --limit "${{ github.event.inputs.limit || '30000' }}" \
+            --from "${{ github.event.inputs.from || '' }}" \
+            --to "${{ github.event.inputs.to || '' }}"
+          node test_agent_sources/report-agent-grind.js
+          echo "has_data=true" >> "$GITHUB_OUTPUT"
+
+      - name: Publish report in job summary
+        run: cat output/agent-grind-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload grind artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-grind-output
+          path: |
+            output/agent-grind-report.md
+            output/agent-run-candidate.json
+            output/agent-grind-summary.json
+            output/agent-grind-best-trades.json
+          if-no-files-found: ignore

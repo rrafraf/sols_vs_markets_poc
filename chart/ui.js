@@ -2,11 +2,17 @@
 
 import { fmtTime } from "./format.js";
 
-export function createUi({ $, cfg, agent, windowLoader, playback, historyTrack }) {
+export function createUi({ $, cfg, agent, priceChart, windowLoader, playback, historyTrack, tradeOverlay }) {
   windowLoader.subscribe({
     status: setStatus,
-    windowChanged: historyTrack.update,
-    indexChanged: renderPlayhead
+    windowChanged: () => {
+      historyTrack.update();
+      tradeOverlay.render();
+    },
+    indexChanged: () => {
+      tradeOverlay.render();
+      renderPlayhead();
+    }
   });
 
   function bind() {
@@ -23,6 +29,19 @@ export function createUi({ $, cfg, agent, windowLoader, playback, historyTrack }
       playback.stop();
       setIndex(Number(e.target.value));
     });
+    $("btn-prev-event").addEventListener("click", () => {
+      playback.stop();
+      const index = tradeOverlay.previousEventIndex(windowLoader.index());
+      if (index != null) setIndex(index);
+    });
+    $("btn-next-event").addEventListener("click", () => {
+      playback.stop();
+      const index = tradeOverlay.nextEventIndex(windowLoader.index());
+      if (index != null) setIndex(index);
+    });
+    $("btn-stress-minus").addEventListener("click", () => updateStress(tradeOverlay.adjustStressOffset(-1)));
+    $("btn-stress-plus").addEventListener("click", () => updateStress(tradeOverlay.adjustStressOffset(1)));
+    $("btn-stress-reset").addEventListener("click", () => updateStress(tradeOverlay.resetStressOffset()));
     $("hist-track").addEventListener("click", historyTrack.onClick);
     $("window-days").addEventListener("change", () => {
       windowLoader.setWindowDays(Number($("window-days").value) || cfg.windowDays);
@@ -39,20 +58,34 @@ export function createUi({ $, cfg, agent, windowLoader, playback, historyTrack }
     const bars = windowLoader.bars();
     const index = windowLoader.index();
     if (!bar) return;
+    priceChart.setHead(bar);
 
     $("bar-info").textContent =
       `${fmtTime(bar.time)}  -  O ${bar.open.toFixed(2)}  H ${bar.high.toFixed(2)}  L ${bar.low.toFixed(2)}  C ${bar.close.toFixed(2)}`;
 
     const decision = agent.decide(index, bars.slice(0, index + 1));
-    $("agent-decision").textContent = `${decision.action} - ${decision.reason}`;
+    const grindDecision = tradeOverlay.explain(bar);
+    $("agent-decision").textContent = grindDecision
+      ? `${decision.action} - ${decision.reason} | tester: ${grindDecision.action} ${grindDecision.reason}`
+      : `${decision.action} - ${decision.reason}`;
     $("agent-decision").dataset.action = decision.action.toLowerCase();
 
     $("progress").textContent = `${index + 1} / ${bars.length}`;
     $("scrubber").value = index;
+    updateDebugState();
   }
 
   function setStatus(msg) {
     $("status").textContent = msg;
+  }
+
+  function updateStress(offset) {
+    updateDebugState(offset);
+  }
+
+  function updateDebugState(offset = tradeOverlay.stressOffset()) {
+    const index = windowLoader.index();
+    $("debug-state").textContent = `head ${index + 1} - stress ${offset}`;
   }
 
   function showFatal(err) {

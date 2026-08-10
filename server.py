@@ -24,6 +24,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "data"
 DB_PATH = DATA_DIR / "market.db"
+OUTPUT_DIR = ROOT / "output"
 DEFAULT_SYMBOL = "TSLA"
 DEFAULT_FROM = "2018-01-01"
 DEFAULT_TO = "2024-12-31"
@@ -726,6 +727,17 @@ def agent_payload(db_path: Path = DB_PATH) -> dict[str, Any]:
     }
 
 
+def agent_grind_payload() -> dict[str, Any]:
+    summary_path = OUTPUT_DIR / "agent-grind-summary.json"
+    trades_path = OUTPUT_DIR / "agent-grind-best-trades.json"
+    if not summary_path.exists() or not trades_path.exists():
+        raise RuntimeError("No agent grind output found. Run test_agent_sources/grind-agent-core.js first.")
+    return {
+        "summary": json.loads(summary_path.read_text(encoding="utf-8")),
+        "trades": json.loads(trades_path.read_text(encoding="utf-8")),
+    }
+
+
 class LabHandler(SimpleHTTPRequestHandler):
     server_version = "TSLAPhysicsLab/1.0"
 
@@ -793,6 +805,9 @@ class LabHandler(SimpleHTTPRequestHandler):
 
             if parsed.path == "/api/agent":
                 return self._json(agent_payload())
+
+            if parsed.path == "/api/agent/grind":
+                return self._json(agent_grind_payload())
 
             return self._json({"error": "Unknown API route"}, HTTPStatus.NOT_FOUND)
         except (RuntimeError, sqlite3.Error, ValueError) as error:

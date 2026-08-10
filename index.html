@@ -62,6 +62,21 @@
       flex-wrap: wrap;
     }
 
+    .debug-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.4rem 1rem;
+      background: #10151d;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .debug-controls span {
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
     button {
       background: #21262d;
       border: 1px solid var(--border);
@@ -143,6 +158,32 @@
     #chart {
       flex: 1;
       min-height: 280px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .chart-price-pane {
+      position: relative;
+      flex: 1;
+      min-height: 180px;
+    }
+
+    .chart-head-line {
+      position: absolute;
+      z-index: 5;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: #f0b429;
+      box-shadow: 0 0 8px rgba(240, 180, 41, 0.75);
+      pointer-events: none;
+    }
+
+    .chart-indicator-pane {
+      height: 120px;
+      min-height: 90px;
+      border-top: 1px solid var(--border);
     }
 
     footer {
@@ -226,6 +267,15 @@
     </div>
   </header>
 
+  <div class="debug-controls">
+    <button id="btn-prev-event" title="Previous tester event">◀ event</button>
+    <button id="btn-next-event" title="Next tester event">Send ▶</button>
+    <button id="btn-stress-minus" title="Move tester fills one bar earlier">stress -</button>
+    <button id="btn-stress-plus" title="Move tester fills one bar later">stress +</button>
+    <button id="btn-stress-reset" title="Reset tester marker stress">reset</button>
+    <span id="debug-state">head — stress 0</span>
+  </div>
+
   <!-- Full history span. Click anywhere to jump the active window. -->
   <div id="hist-wrap" hidden>
     <div id="hist-label">full history</div>
@@ -241,7 +291,7 @@
   <footer>
     <div id="bar-info">—</div>
     <div style="text-align:right">
-      <div style="color:var(--muted);font-size:0.7rem;margin-bottom:0.15rem">agent (empty)</div>
+      <div style="color:var(--muted);font-size:0.7rem;margin-bottom:0.15rem">agent grind</div>
       <div id="agent-decision" data-action="wait">WAIT — no rule yet</div>
     </div>
   </footer>
