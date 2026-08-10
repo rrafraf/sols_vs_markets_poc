@@ -7,4 +7,8 @@ data/*.db-shm
 data/*.db-wal
 /data
 test_agent_sources/node_modules/*
+secrets.ps1
 secrets copy.ps1
+.env
+.env.*
+!.env.example
