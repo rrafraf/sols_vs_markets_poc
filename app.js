@@ -35,6 +35,9 @@ async function main() {
       priceChart.add_sensor(sensor.fn, {
         name: sensor.name,
         color: sensor.color,
+        lineWidth: sensor.lineWidth,
+        pane: sensor.pane,
+        seriesType: sensor.seriesType,
         ...(sensor.options || {})
       });
     }
