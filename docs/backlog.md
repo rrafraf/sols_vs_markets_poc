@@ -103,3 +103,19 @@ Only after the baseline grind is trusted:
 - Temperament race: greedy, patient, disciplined, explorer, contrarian.
 
 These are experiments, not permanent architecture until they prove useful.
+
+## Priority 5 - execution modes
+
+Deterministic booth first:
+
+- One worker for source-of-truth replay.
+- Explicit candle/phase lifecycle.
+- No random missed orders by default.
+- Fill timing is part of the execution model, not hidden strategy logic.
+
+Chaos/arena stress later:
+
+- Random latency, missed/rejected orders, slippage, queue pressure.
+- Booth capacity and agent contention.
+- Useful for distributed pseudo-random systems testing, not for baseline truth.
+- Must be visibly labeled as stress output so nobody mistakes it for clean backtest evidence.
