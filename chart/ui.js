@@ -1,5 +1,6 @@
 "use strict";
 
+import { isEntryAction } from "./actions.js";
 import { fmtTime } from "./format.js";
 
 export function createUi({ $, cfg, agent, priceChart, windowLoader, playback, historyTrack, tradeOverlay }) {
@@ -69,6 +70,9 @@ export function createUi({ $, cfg, agent, priceChart, windowLoader, playback, hi
       ? `${decision.action} - ${decision.reason} | tester: ${grindDecision.action} ${grindDecision.reason}`
       : `${decision.action} - ${decision.reason}`;
     $("agent-decision").dataset.action = decision.action.toLowerCase();
+    $("agent-inputs").textContent = formatDecisionInputs(decision.inputs);
+    $("agent-meta").textContent = formatDecisionMeta(decision);
+    priceChart.setMarkerLayer("agent-decision", decisionMarker(decision, bar));
 
     $("progress").textContent = `${index + 1} / ${bars.length}`;
     $("scrubber").value = index;
@@ -85,7 +89,75 @@ export function createUi({ $, cfg, agent, priceChart, windowLoader, playback, hi
 
   function updateDebugState(offset = tradeOverlay.stressOffset()) {
     const index = windowLoader.index();
-    $("debug-state").textContent = `head ${index + 1} - stress ${offset}`;
+    $("playhead-debug").textContent = `head ${index + 1} - stress ${offset}`;
+  }
+
+  function decisionMarker(decision, bar) {
+    if (!bar || !isEntryAction(decision.action)) return [];
+    return [{
+      time: bar.time,
+      position: decision.action === "LONG" ? "belowBar" : "aboveBar",
+      color: decision.action === "LONG" ? "#3fb950" : "#f85149",
+      shape: decision.action === "LONG" ? "arrowUp" : "arrowDown",
+      text: `AGENT ${decision.action}`
+    }];
+  }
+
+  function formatDecisionInputs(inputs) {
+    const entries = Object.entries(inputs || {});
+    if (!entries.length) return "inputs —";
+    return entries
+      .map(([key, value]) => `${key} ${formatInputValue(value)}`)
+      .join(" | ");
+  }
+
+  function formatInputValue(value) {
+    return Number.isFinite(value) ? value.toFixed(3) : "n/a";
+  }
+
+  function formatDecisionMeta(decision) {
+    const parts = [];
+    if (decision.belief) {
+      parts.push(
+        `belief L ${formatInputValue(decision.belief.long)} S ${formatInputValue(decision.belief.short)}`,
+        `conv ${formatInputValue(decision.belief.conviction)}`,
+        `struggle ${formatInputValue(decision.belief.struggle)}`
+      );
+    }
+    if (decision.drive) {
+      parts.push(
+        `drive ${decision.drive.dominant}`,
+        `greed ${formatInputValue(decision.drive.greed)}`,
+        `fear ${formatInputValue(decision.drive.fear)}`,
+        `joy ${formatInputValue(decision.drive.joy)}`,
+        `patience ${formatInputValue(decision.drive.patience)}`
+      );
+    }
+    if (decision.memory) {
+      const winRate = decision.memory.winRate == null
+        ? "n/a"
+        : `${(decision.memory.winRate * 100).toFixed(0)}%`;
+      parts.push(
+        `memory n ${decision.memory.samples}`,
+        `avg ${formatInputValue(decision.memory.avgBps)}bps`,
+        `win ${winRate}`,
+        `trauma ${formatInputValue(decision.memory.trauma)}`
+      );
+    }
+    if (decision.risk) {
+      parts.push(
+        `risk bad ${formatInputValue(decision.risk.expectedAdverseBps)}bps`,
+        `worst ${formatInputValue(decision.risk.worstAdverseBps)}bps`,
+        `severity ${formatInputValue(decision.risk.severity)}`
+      );
+    }
+    if (decision.size) {
+      parts.push(`size ${(decision.size.equityFraction * 100).toFixed(3)}% equity`);
+    }
+    if (decision.veto) {
+      parts.push(`veto ${decision.veto}`);
+    }
+    return parts.length ? parts.join(" | ") : "belief —";
   }
 
   function showFatal(err) {

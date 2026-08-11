@@ -39,7 +39,7 @@ export function rsi(bars, context = {}) {
 }
 
 /**
- * RSI state normalized to [-1, +1].
+ * RSI level normalized to [-1, +1].
  * -1 = RSI 0, 0 = RSI 50, +1 = RSI 100.
  */
 export function rsiLevel(bars, context = {}) {

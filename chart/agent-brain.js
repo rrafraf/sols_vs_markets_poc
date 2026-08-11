@@ -1,7 +1,8 @@
 "use strict";
 
+import { cleanAction } from "./actions.js";
 import { signalSpecs } from "./signals.js";
-import { makeTradeCall } from "./strategy.js";
+import { decisionAt } from "./strategy.js";
 
 const SPEC_RUNTIME_KEYS = new Set([
   "fn",
@@ -20,7 +21,9 @@ const SPEC_RUNTIME_KEYS = new Set([
 
 export const agentSensors = resolveSensorSpecs(signalSpecs);
 
-export function buildDecisionState(index, bars, sensors = agentSensors) {
+// Convert chart history at one candle into the market view that strategy reads.
+// Trading intent stays in strategy.js: decisionAt(market).
+export function marketAt(index, bars, sensors = agentSensors) {
   const history = bars.slice(0, index + 1);
   const sensorValues = {};
 
@@ -48,25 +51,25 @@ export function buildDecisionState(index, bars, sensors = agentSensors) {
   };
 }
 
-export const buildDecisionFrame = buildDecisionState;
-
-export function decide(state) {
-  return normalizeDecision(makeTradeCall(state), state);
+export function decide(market) {
+  const decision = decisionAt(market);
+  return decisionWithMarket(decision, market);
 }
 
-function normalizeDecision(decision, state) {
-  if (!decision || typeof decision !== "object") {
-    return { action: "WAIT", reason: "strategy returned no decision", frame: state };
+function decisionWithMarket(decision, market) {
+  if (decision == null || typeof decision !== "object") {
+    return { action: cleanAction(), reason: "strategy returned no decision", market };
   }
 
-  const action = String(decision.action || "WAIT").toUpperCase();
   return {
     ...decision,
-    action: ["LONG", "SHORT", "WAIT"].includes(action) ? action : "WAIT",
-    reason: decision.reason || action.toLowerCase(),
-    frame: state
+    action: cleanAction(decision.action),
+    reason: decision.reason || cleanAction(decision.action).toLowerCase(),
+    market
   };
 }
+
+
 
 function resolveSensorSpecs(specs) {
   const resolved = new Map();

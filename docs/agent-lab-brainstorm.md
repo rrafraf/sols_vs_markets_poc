@@ -133,19 +133,46 @@ Accepted return shapes:
 - point array: `[{ time, value }, ...]`
 - sensor-ish point array: `[{ time, score }]`, `[{ time, signal }]`, or `[{ time, y }]`
 
-## Agent Decision Function
+## Agent Strategy Function
 
-The browser now uses `chart/agent-brain.js` as the editable decision place:
+The browser now uses `chart/strategy.js` as the editable decision place:
 
 ```js
-export function decide(frame) {
-  const rsi = frame.sensors.rsi?.value;
-  if (rsi < 30) return { action: "LONG", reason: "RSI oversold" };
-  return { action: "WAIT", reason: "no setup" };
+export function decisionAt(market) {
+  const divergence = market.sensors.rsi_divergence?.value;
+  const accel = market.sensors.rsi_acceleration?.value;
+  const rsi = market.sensors.rsi_5_level?.value;
+
+  if (divergence > 0 && accel > 0 && rsi < 0) {
+    return {
+      action: "LONG",
+      reason: "bullish divergence + acceleration while RSI is low",
+      inputs: { divergence, accel, rsi }
+    };
+  }
+
+  return {
+    action: "HOLD",
+    reason: "conditions not aligned",
+    inputs: { divergence, accel, rsi }
+  };
 }
 ```
 
-The same sensors listed in `agentSensors` are drawn as lower chart panes and are available inside `frame.sensors`.
+The same sensors listed in `chart/signals.js` are drawn as lower chart panes and are available inside `market.sensors`. The decision action stays discrete:
+
+- `LONG`: long-side setup is actionable.
+- `SHORT`: short-side setup is actionable.
+- `HOLD`: no actionable setup.
+- `WAIT`: setup exists, but a veto/hesitation blocks the entry.
+
+The decision object may also carry analog context:
+
+- `belief`: long/short pressure and decision struggle.
+- `drive`: greed/fear/joy/patience pushing the inputs toward a reason.
+- `memory`: how similar past setups behaved in the current chart history.
+- `risk`: how bad the action could be if it is wrong.
+- `size`: how much equity the agent would risk after belief/drive/memory/risk adjustment.
 
 ## 2026-08-10 Local Run Notes
 

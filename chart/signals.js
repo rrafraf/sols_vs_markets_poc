@@ -10,7 +10,7 @@ import {
 
 // User-facing signal catalog.
 //
-// Object key = signal id used by strategy.js, e.g. state.sensors.rsi_divergence.
+// Object key = signal id used by strategy.js, e.g. market.sensors.rsi_divergence.
 // name       = chart label.
 // fn         = raw indicator/math function.
 // from+calc  = compound signal built from other signals at matching candle times.
@@ -28,9 +28,9 @@ export const signalSpecs = {
     period: 14
   },
 
-  rsi_5_state: {
+  rsi_5_level: {
     fn: rsiLevel,
-    name: "RSI 5 state",
+    name: "RSI 5 level",
     color: "#d2a8ff",
     pane: "separate",
     lineWidth: 1,
@@ -60,12 +60,12 @@ export const signalSpecs = {
   },
 
   rsi_pressure: {
-    from: ["rsi_5_state", "rsi_acceleration"],
+    from: ["rsi_5_level", "rsi_acceleration"],
     name: "RSI pressure",
     color: "#ff7b72",
     pane: "separate",
     lineWidth: 1,
-    calc: ({ rsi_5_state: level, rsi_acceleration: acceleration }) => (
+    calc: ({ rsi_5_level: level, rsi_acceleration: acceleration }) => (
       0.65 * level + 0.35 * acceleration
     )
   },

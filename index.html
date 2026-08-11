@@ -215,8 +215,32 @@
       color: var(--red);
     }
 
-    #agent-decision[data-action="wait"] {
+    #agent-decision[data-action="hold"] {
       color: var(--muted);
+    }
+
+    #agent-decision[data-action="wait"] {
+      color: #f0b429;
+    }
+
+    #agent-inputs {
+      color: var(--muted);
+      font-size: 0.7rem;
+      margin-top: 0.2rem;
+      max-width: 560px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #agent-meta {
+      color: var(--muted);
+      font-size: 0.7rem;
+      margin-top: 0.15rem;
+      max-width: 760px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     #progress {
@@ -273,7 +297,7 @@
     <button id="btn-stress-minus" title="Move tester fills one bar earlier">stress -</button>
     <button id="btn-stress-plus" title="Move tester fills one bar later">stress +</button>
     <button id="btn-stress-reset" title="Reset tester marker stress">reset</button>
-    <span id="debug-state">head — stress 0</span>
+    <span id="playhead-debug">head — stress 0</span>
   </div>
 
   <!-- Full history span. Click anywhere to jump the active window. -->
@@ -291,8 +315,10 @@
   <footer>
     <div id="bar-info">—</div>
     <div style="text-align:right">
-      <div style="color:var(--muted);font-size:0.7rem;margin-bottom:0.15rem">agent grind</div>
-      <div id="agent-decision" data-action="wait">WAIT — no rule yet</div>
+      <div style="color:var(--muted);font-size:0.7rem;margin-bottom:0.15rem">agent decision</div>
+      <div id="agent-decision" data-action="hold">HOLD — no rule yet</div>
+      <div id="agent-inputs">—</div>
+      <div id="agent-meta">—</div>
     </div>
   </footer>
 
