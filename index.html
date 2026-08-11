@@ -259,10 +259,10 @@
       border-top: 1px solid var(--border);
       background: #0f141b;
       display: grid;
-      grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 1.4fr);
+      grid-template-columns: minmax(360px, 1fr) minmax(360px, 1.1fr);
       gap: 0.65rem;
       padding: 0.65rem 1rem;
-      max-height: 260px;
+      max-height: 430px;
       overflow: hidden;
     }
 
@@ -292,12 +292,46 @@
       margin-bottom: 0.45rem;
     }
 
+    .trace-human {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.45rem;
+      margin: 0.55rem 0;
+    }
+
+    .trace-card {
+      border: 1px solid var(--border);
+      background: #0d1117;
+      padding: 0.5rem;
+      min-height: 4.5rem;
+    }
+
+    .trace-card-title {
+      color: var(--muted);
+      font-size: 0.66rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 0.25rem;
+    }
+
+    .trace-card-main {
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+
+    .trace-card-note {
+      color: var(--muted);
+      font-size: 0.7rem;
+      line-height: 1.35;
+      margin-top: 0.25rem;
+    }
+
     .trace-list {
       display: flex;
       flex-direction: column;
       gap: 1px;
       overflow: auto;
-      max-height: 170px;
+      max-height: 190px;
       border: 1px solid var(--border);
       background: #0d1117;
     }
@@ -340,7 +374,11 @@
     @media (max-width: 900px) {
       #trace-panel {
         grid-template-columns: 1fr;
-        max-height: 420px;
+        max-height: 620px;
+      }
+
+      .trace-human {
+        grid-template-columns: 1fr;
       }
     }
 
@@ -406,6 +444,7 @@
       <div class="trace-head">
         <strong>TRACE REPLAY</strong>
         <button id="trace-refresh">reload</button>
+        <button id="trace-demo">make demo trace</button>
         <label>
           run
           <select id="trace-run"></select>
@@ -413,6 +452,7 @@
         <span id="trace-status">—</span>
       </div>
       <div id="trace-summary">—</div>
+      <div id="trace-human" class="trace-human"></div>
       <div class="trace-head" style="margin-top:0.45rem">
         <button id="trace-prev">◀ interesting</button>
         <button id="trace-next">interesting ▶</button>
@@ -423,7 +463,7 @@
       <div id="trace-anomalies" class="trace-list"></div>
     </div>
     <div>
-      <div class="trace-list-title">events: who did what when</div>
+      <div class="trace-list-title">raw evidence: who did what when</div>
       <div id="trace-events" class="trace-list"></div>
     </div>
   </section>

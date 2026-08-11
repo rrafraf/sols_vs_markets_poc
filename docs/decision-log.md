@@ -243,3 +243,20 @@ Result:
 
 - The app can show run summary, anomalies, event rows, and a compact same-candle story.
 - This is not the final visual debugger; it is the first usable replay surface.
+
+## 2026-08-11 - Add human-readable trace story
+
+Decision:
+
+- Keep raw trace rows as evidence, but add a human-readable story layer above them.
+- Add a fixed demo trace action in the app for repeatable local demos.
+
+Why:
+
+- Command-line output and CSV/JSON links are good for development, but not presentable to a non-coder.
+- The app should explain the same-candle issue as a sequence of actions, not as files to inspect.
+
+Result:
+
+- The trace panel now shows story cards for what happened, why OHLC makes it ambiguous, what the simulator did, and what the safety rule does.
+- The raw event rows remain visible for verification.

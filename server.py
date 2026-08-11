@@ -12,6 +12,7 @@ import json
 import mimetypes
 import os
 import sqlite3
+import subprocess
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -820,6 +821,54 @@ def training_run_payload(base: str = "latest", run: str | None = None) -> dict[s
     }
 
 
+def run_training_demo_payload() -> dict[str, Any]:
+    runner = ROOT / "training_ground" / "run-experiment.js"
+    if not runner.exists():
+        raise RuntimeError("Missing training_ground/run-experiment.js.")
+
+    command = [
+        "node",
+        str(runner),
+        "--agent",
+        "coin-flip",
+        "--runs",
+        "32",
+        "--workers",
+        "1",
+        "--limit",
+        "5000",
+        "--seed",
+        "9801",
+        "--name",
+        "app-demo",
+        "--trace",
+        "summary,trades,events,decisions,anomalies",
+        "--decisionTrace",
+        "actions",
+    ]
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=90,
+            check=False,
+        )
+    except OSError as error:
+        raise RuntimeError(f"Could not start demo grind: {error}") from error
+    if completed.returncode != 0:
+        output = (completed.stderr or completed.stdout or "Training demo failed.").strip()
+        raise RuntimeError(output[-4000:])
+
+    return {
+        "ok": True,
+        "name": "app-demo",
+        "stdout": completed.stdout[-4000:],
+        "overview": training_runs_payload("latest"),
+    }
+
+
 class LabHandler(SimpleHTTPRequestHandler):
     server_version = "TSLAPhysicsLab/1.0"
 
@@ -904,6 +953,20 @@ class LabHandler(SimpleHTTPRequestHandler):
 
             return self._json({"error": "Unknown API route"}, HTTPStatus.NOT_FOUND)
         except (RuntimeError, sqlite3.Error, ValueError) as error:
+            return self._json({"error": str(error)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+
+    def do_POST(self) -> None:  # noqa: N802 - stdlib callback name
+        parsed = urllib.parse.urlparse(self.path)
+        content_length = int(self.headers.get("Content-Length", "0") or "0")
+        if content_length:
+            self.rfile.read(content_length)
+
+        try:
+            if parsed.path == "/api/training/demo":
+                return self._json(run_training_demo_payload())
+
+            return self._json({"error": "Unknown API route"}, HTTPStatus.NOT_FOUND)
+        except (RuntimeError, subprocess.SubprocessError, ValueError) as error:
             return self._json({"error": str(error)}, HTTPStatus.INTERNAL_SERVER_ERROR)
 
     def log_message(self, message: str, *args: Any) -> None:

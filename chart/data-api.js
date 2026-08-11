@@ -69,7 +69,23 @@ export function createDataApi(cfg) {
     return res.json();
   }
 
-  return { fetchMeta, fetchBars, fetchAgentGrind, fetchTrainingRuns, fetchTrainingRun };
+  async function runTrainingDemo() {
+    const res = await fetch("/api/training/demo", { method: "POST" });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(payload.error || `HTTP ${res.status}`);
+    }
+    return payload;
+  }
+
+  return {
+    fetchMeta,
+    fetchBars,
+    fetchAgentGrind,
+    fetchTrainingRuns,
+    fetchTrainingRun,
+    runTrainingDemo
+  };
 }
 
 function normalizeBar(b) {
