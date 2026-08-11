@@ -410,11 +410,11 @@
     #trace-bookmark,
     #trace-story {
       color: var(--muted);
-      font-size: 0.72rem;
+      font-size: 0.82rem;
     }
 
     #trace-story {
-      line-height: 1.4;
+      line-height: 1.5;
       margin-bottom: 0.45rem;
     }
 
@@ -434,20 +434,20 @@
 
     .trace-card-title {
       color: var(--muted);
-      font-size: 0.66rem;
+      font-size: 0.72rem;
       letter-spacing: 0.05em;
       text-transform: uppercase;
       margin-bottom: 0.25rem;
     }
 
     .trace-card-main {
-      font-size: 0.82rem;
+      font-size: 0.92rem;
       line-height: 1.35;
     }
 
     .trace-card-note {
       color: var(--muted);
-      font-size: 0.7rem;
+      font-size: 0.78rem;
       line-height: 1.35;
       margin-top: 0.25rem;
     }
@@ -464,13 +464,13 @@
 
     .trace-list-title {
       color: var(--muted);
-      font-size: 0.68rem;
+      font-size: 0.78rem;
       margin: 0.2rem 0;
     }
 
     .trace-row {
       display: grid;
-      grid-template-columns: 52px 132px 150px 70px minmax(160px, 1fr);
+      grid-template-columns: 64px 142px 160px 80px minmax(180px, 1fr);
       gap: 0.45rem;
       width: 100%;
       text-align: left;
@@ -478,13 +478,18 @@
       border-radius: 0;
       background: transparent;
       border-bottom: 1px solid var(--row-border);
-      padding: 0.24rem 0.35rem;
+      padding: 0.35rem 0.45rem;
       color: var(--text);
-      font-size: 0.68rem;
+      font-size: 0.78rem;
     }
 
     .trace-row:hover {
       background: var(--trace-row-hover);
+    }
+
+    .trace-row[aria-pressed="true"] {
+      background: var(--accent);
+      color: white;
     }
 
     .trace-anomaly {
@@ -494,7 +499,33 @@
     .trace-empty {
       color: var(--muted);
       padding: 0.4rem;
-      font-size: 0.72rem;
+      font-size: 0.82rem;
+    }
+
+    .case-report {
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .case-turn {
+      display: grid;
+      grid-template-columns: 2rem 1fr;
+      gap: 0.5rem;
+      align-items: start;
+      color: var(--text);
+    }
+
+    .case-turn strong {
+      color: var(--accent);
+    }
+
+    .case-turn span {
+      color: var(--muted);
+    }
+
+    .case-status {
+      margin-top: 0.45rem;
+      color: var(--text);
     }
 
     @media (max-width: 900px) {
@@ -660,16 +691,16 @@
       <div id="trace-summary">—</div>
       <div id="trace-human" class="trace-human"></div>
       <div class="trace-head" style="margin-top:0.45rem">
-        <button id="trace-prev">◀ interesting</button>
-        <button id="trace-next">interesting ▶</button>
+        <button id="trace-prev">◀ prev scene</button>
+        <button id="trace-next">next scene ▶</button>
         <span id="trace-bookmark">—</span>
       </div>
       <div id="trace-story">—</div>
-      <div class="trace-list-title">anomalies</div>
+      <div class="trace-list-title">evidence list</div>
       <div id="trace-anomalies" class="trace-list"></div>
     </div>
     <div>
-      <div class="trace-list-title">raw evidence: who did what when</div>
+      <div class="trace-list-title">event log: who did what when</div>
       <div id="trace-events" class="trace-list"></div>
     </div>
   </section>

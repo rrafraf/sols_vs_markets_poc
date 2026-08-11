@@ -6,6 +6,7 @@ export function createTracePanel({ $, dataApi, windowLoader }) {
   let activePayload = null;
   let bookmarks = [];
   let bookmarkIndex = 0;
+  let selectedEvidenceIndex = 0;
 
   async function init() {
     bind();
@@ -91,6 +92,8 @@ export function createTracePanel({ $, dataApi, windowLoader }) {
     const trades = activePayload.trades || [];
     const anomalies = activePayload.anomalies || [];
     const decisions = activePayload.decisions || [];
+    selectedEvidenceIndex = Math.max(0, Math.min(selectedEvidenceIndex, Math.max(0, anomalies.length - 1)));
+    const selectedEvidence = anomalies[selectedEvidenceIndex] || null;
 
     $("trace-summary").textContent = [
       `run ${activeRun}`,
@@ -102,14 +105,17 @@ export function createTracePanel({ $, dataApi, windowLoader }) {
       `anomalies ${anomalies.length}`
     ].join(" · ");
 
-    $("trace-human").innerHTML = renderHumanStory(activePayload);
-    $("trace-story").textContent = storyFor(activePayload);
-    $("trace-events").innerHTML = renderEventRows(eventsForDisplay(events, anomalies));
-    $("trace-anomalies").innerHTML = renderAnomalyRows(anomalies);
+    $("trace-human").innerHTML = renderHumanStory(activePayload, selectedEvidence);
+    $("trace-story").innerHTML = renderCaseReport(activePayload, selectedEvidence);
+    $("trace-events").innerHTML = renderEventRows(eventsForDisplay(events, selectedEvidence ? [selectedEvidence] : anomalies));
+    $("trace-anomalies").innerHTML = renderAnomalyRows(anomalies, selectedEvidenceIndex);
     setTraceStatus("ready");
 
     for (const row of document.querySelectorAll("[data-trace-time]")) {
       row.addEventListener("click", () => jumpToTraceTime(row.dataset.traceTime));
+    }
+    for (const row of document.querySelectorAll("[data-evidence-index]")) {
+      row.addEventListener("click", () => selectEvidence(Number(row.dataset.evidenceIndex), { jump: true }));
     }
   }
 
@@ -144,61 +150,83 @@ export function createTracePanel({ $, dataApi, windowLoader }) {
     return (focused.length ? focused : events).slice(0, 180);
   }
 
-  function renderAnomalyRows(anomalies) {
+  function renderAnomalyRows(anomalies, selectedIndex) {
     if (!anomalies.length) return `<div class="trace-empty">no anomalies for this run</div>`;
-    return anomalies.map(anomaly => `
-      <button class="trace-row trace-anomaly" data-trace-time="${esc(anomaly.time)}" type="button">
+    return anomalies.map((anomaly, index) => `
+      <button class="trace-row trace-anomaly" data-evidence-index="${index}" aria-pressed="${index === selectedIndex ? "true" : "false"}" type="button">
         <span>${esc(anomaly.index)}</span>
         <span>${shortTime(anomaly.time)}</span>
         <span>${esc(anomaly.type)}</span>
-        <span>ANOM</span>
+        <span>CASE ${index + 1}</span>
         <span>${esc(anomaly.message || "")}</span>
       </button>
     `).join("");
   }
 
-  function storyFor(payload) {
-    const sameCandle = (payload.anomalies || []).find(a => a.type === "ENTRY_EXIT_SAME_CANDLE");
-    if (!sameCandle) {
-      return "No same-candle anomaly in this run. Pick another run or inspect the raw evidence rows.";
+  function renderCaseReport(payload, evidence) {
+    if (!evidence) {
+      return `<div class="case-report"><div class="trace-empty">No evidence case selected.</div></div>`;
     }
 
-    const idx = sameCandle.index;
-    const events = (payload.events || []).filter(e => e.index === idx);
-    const lines = events.map(e => `${shortTime(e.time)} ${humanEvent(e)}`.trim());
-    return [
-      `Evidence at candle ${idx}:`,
-      ...lines,
-      `Flagged as ${sameCandle.type}.`
-    ].join(" ");
+    const idx = String(evidence.index);
+    const events = payload.events || [];
+    const sameIndexEvents = events.filter(e => String(e.index) === idx);
+    const submitted = events.find(event =>
+      event.type === "ORDER_SUBMITTED" &&
+      event.agentId === evidence.agentId &&
+      String(event.fillIndex) === idx
+    );
+    const filled = sameIndexEvents.find(event => event.type === "ORDER_FILLED");
+    const exit = sameIndexEvents.find(event => event.type === "EXIT");
+    const blocked = sameIndexEvents.find(event => event.type === "DECISION_BLOCKED");
+    const details = sameCandleDetails(evidence);
+
+    return `
+      <div class="case-report">
+        ${caseTurn(1, "Decision", submitted
+          ? `${submitted.agentId} asked for ${submitted.action}. The order was scheduled for candle ${submitted.fillIndex}.`
+          : `${evidence.agentId} had an entry order before candle ${idx}.`)}
+        ${caseTurn(2, "Fill", filled
+          ? `The simulator opened ${filled.side} at ${money(filled.price)} on ${shortTime(filled.time)}.`
+          : `The simulator opened a position on candle ${idx}.`)}
+        ${caseTurn(3, "Mayday", exit
+          ? `The same candle also triggered ${exit.reason} exit, closing at ${money(exit.price)} for ${money(exit.pnl)}.`
+          : `The same candle also triggered an exit.`)}
+        ${caseTurn(4, "Inspection", `Candle ${idx} is OHLC data. It has open/high/low/close, but not the true order inside the minute.`)}
+        ${caseTurn(5, "Report", `Responsible layer: execution model + missing intrabar order, not the trader. Side: ${details.side || filled?.side || "unknown"}. Exit reason: ${details.exitReason || exit?.reason || "unknown"}.`)}
+        ${caseTurn(6, "Measures", blocked
+          ? `Recorded anomaly and blocked another same-candle decision after the collision.`
+          : `Recorded anomaly for inspection.`)}
+        <div class="case-status"><strong>Status:</strong> contained and visible. Full fix still means declaring stricter execution phases.</div>
+      </div>
+    `;
   }
 
-  function renderHumanStory(payload) {
-    const sameCandle = (payload.anomalies || []).find(a => a.type === "ENTRY_EXIT_SAME_CANDLE");
+  function renderHumanStory(payload, evidence) {
     const run = payload.summary || {};
-    if (!sameCandle) {
+    if (!evidence) {
       return [
-        card("What happened?", `Run ${payload.run} completed ${run.tradeCount ?? "?"} trades.`, "No same-candle anomaly is selected in this run."),
-        card("How to inspect", "Pick a run with an anomaly or use the interesting buttons.", "The table on the right is the raw evidence.")
+        card("Evidence room", `Run ${payload.run} completed ${run.tradeCount ?? "?"} trades.`, "No evidence case is selected in this run."),
+        card("How to inspect", "Pick a case from the evidence list.", "The event log on the right stays as the raw proof.")
       ].join("");
     }
 
     const events = payload.events || [];
-    const idx = String(sameCandle.index);
+    const idx = String(evidence.index);
     const sameIndexEvents = events.filter(event => String(event.index) === idx);
     const filled = sameIndexEvents.find(event => event.type === "ORDER_FILLED");
     const exit = sameIndexEvents.find(event => event.type === "EXIT");
     const blocked = sameIndexEvents.find(event => event.type === "DECISION_BLOCKED");
     const submitted = events.find(event =>
       event.type === "ORDER_SUBMITTED" &&
-      event.agentId === sameCandle.agentId &&
+      event.agentId === evidence.agentId &&
       String(event.fillIndex) === idx
     );
     const sequence = sameIndexEvents.map(event => event.type).join(" → ");
-    const side = sameCandleDetails(sameCandle).side || filled?.side || submitted?.side || "position";
+    const side = sameCandleDetails(evidence).side || filled?.side || submitted?.side || "position";
     const submitText = submitted
       ? `${submitted.agentId} decided ${submitted.action} at ${shortTime(submitted.time)}.`
-      : `${sameCandle.agentId} had an entry order before this candle.`;
+      : `${evidence.agentId} had an entry order before this candle.`;
     const fillText = filled
       ? `The simulator filled ${side} at ${money(filled.price)} on ${shortTime(filled.time)}.`
       : `The simulator filled ${side} on candle ${idx}.`;
@@ -210,11 +238,20 @@ export function createTracePanel({ $, dataApi, windowLoader }) {
       : "The anomaly was recorded for inspection.";
 
     return [
-      card("Story", `${submitText} ${fillText} ${exitText}`, `Candle ${idx} · ${shortTime(sameCandle.time)}`),
-      card("Why it matters", "A one-minute OHLC candle has open, high, low, close — but not the true order inside the minute.", "So entering and stopping out inside the same candle is model-dependent, not hard evidence."),
-      card("Simulator part", "The sim advances through historical candles and applies fills, latency, slippage, stops, and exits.", `Observed sequence: ${sequence || "no same-index events"}`),
-      card("Safety rule", blockText, "The rule marks the case and prevents another decision from using the same candle twice.")
+      card("Selected evidence", `Case ${selectedEvidenceIndex + 1}: ${evidence.type}`, `Candle ${idx} · ${shortTime(evidence.time)}`),
+      card("Incident", `${submitText} ${fillText} ${exitText}`, "This is the readable summary; the event log is the proof."),
+      card("Candle malfunction", "The trade entered and exited inside one 1-minute OHLC candle.", "OHLC does not prove which intraminute event came first."),
+      card("Investigation", blockText, `Observed sequence: ${sequence || "no same-index events"}`)
     ].join("");
+  }
+
+  function caseTurn(number, title, text) {
+    return `
+      <div class="case-turn">
+        <strong>${number}.</strong>
+        <div><strong>${esc(title)}</strong><br><span>${esc(text)}</span></div>
+      </div>
+    `;
   }
 
   function renderNoTraceCards() {
@@ -297,6 +334,15 @@ export function createTracePanel({ $, dataApi, windowLoader }) {
     const node = $("trace-status");
     if (node) node.textContent = text;
   }
+
+  function selectEvidence(index, { jump = false } = {}) {
+    selectedEvidenceIndex = Math.max(0, Math.min(index, (activePayload?.anomalies || []).length - 1));
+    const evidence = activePayload?.anomalies?.[selectedEvidenceIndex];
+    render();
+    if (jump && evidence?.time) jumpToTraceTime(evidence.time);
+  }
+
+  return { init, loadOverview, loadRun };
 }
 
 function pct(value) {
