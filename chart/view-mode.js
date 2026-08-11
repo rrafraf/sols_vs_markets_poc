@@ -23,7 +23,7 @@ export function createViewMode({ $ }) {
     for (const button of document.querySelectorAll("[data-mode-button]")) {
       button.addEventListener("click", () => setMode(button.dataset.modeButton));
     }
-    $("theme-toggle")?.addEventListener("click", () => setTheme(theme === "light" ? "dark" : "light"));
+    $("theme-toggle")?.addEventListener("click", toggleStageLights);
     setMode(active);
     setTheme(theme);
   }
@@ -42,6 +42,17 @@ export function createViewMode({ $ }) {
       const selected = button.dataset.modeButton === active;
       button.setAttribute("aria-pressed", selected ? "true" : "false");
     }
+    window.dispatchEvent(new Event("resize"));
+  }
+
+  function toggleStageLights() {
+    if (theme === "light") {
+      setTheme("dark");
+      setMode("arena");
+    } else {
+      setTheme("light");
+      setMode("watch");
+    }
   }
 
   function setTheme(nextTheme) {
@@ -50,7 +61,7 @@ export function createViewMode({ $ }) {
 
     const button = $("theme-toggle");
     if (button) {
-      button.textContent = theme === "light" ? "lights off" : "lights on";
+      button.textContent = theme === "light" ? "lights off: arena" : "lights on: explore";
       button.setAttribute("aria-pressed", theme === "light" ? "true" : "false");
     }
 

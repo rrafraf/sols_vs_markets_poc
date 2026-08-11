@@ -527,6 +527,10 @@
       display: none;
     }
 
+    body[data-mode="arena"] .chart-indicator-pane {
+      display: none;
+    }
+
     body[data-mode="evidence"] main,
     body[data-mode="evidence"] #hist-wrap,
     body[data-mode="evidence"] .debug-controls,
@@ -549,16 +553,16 @@
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 
-<body data-mode="arena" data-theme="light">
+<body data-mode="watch" data-theme="light">
   <header>
-    <h1 id="app-title">GRIND ARENA</h1>
+    <h1 id="app-title">PRICE WATCH</h1>
     <nav class="mode-tabs" aria-label="app mode">
       <button data-mode-button="watch" type="button">Watch</button>
       <button data-mode-button="arena" type="button">Arena</button>
       <button data-mode-button="evidence" type="button">Evidence</button>
     </nav>
-    <button id="theme-toggle" type="button">lights off</button>
-    <span id="mode-status">story + replay</span>
+    <button id="theme-toggle" type="button">lights off: arena</button>
+    <span id="mode-status">chart + indicators</span>
     <span id="status">starting…</span>
     <div class="controls">
       <button id="btn-start" title="First bar of loaded window">⏮</button>
