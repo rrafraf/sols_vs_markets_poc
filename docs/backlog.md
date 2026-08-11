@@ -40,6 +40,9 @@ Before adding complex strategy logic, decide how results are judged:
 The practical question is not "did one run win?".
 It is: "does this behavior survive many runs and still look useful after stress?"
 
+Also see `docs/observability.md`.
+The goal is to find leaks and bad assumptions before trusting any profit result.
+
 ## Run log
 
 ### 2026-08-11 coin-flip smoke

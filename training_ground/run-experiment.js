@@ -38,7 +38,10 @@ function parseArgs(argv) {
     maxSlippageBps: 18,
     missProbability: 0.02,
     startingEquity: 10000,
-    allocation: 0.25
+    allocation: 0.25,
+    trace: "summary,trades,events,anomalies",
+    decisionTrace: "actions",
+    streamTrace: false
   };
 
   for (let i = 0; i < argv.length; i++) {
@@ -142,16 +145,98 @@ function coinFlipAgent(rand, args) {
     name: "coin-flip",
     decide(index, bar) {
       if (rand() > args.tradeRate) {
-        return { action: "WAIT", reason: "coin skipped" };
+        return {
+          intent: "WAIT",
+          action: "WAIT",
+          reason: "coin skipped",
+          tactic: "random baseline skip",
+          triggers: { tradeRate: args.tradeRate }
+        };
       }
+      const intent = rand() < 0.5 ? "LONG" : "SHORT";
       return {
-        action: rand() < 0.5 ? "LONG" : "SHORT",
+        intent,
+        action: intent,
         reason: "seeded coin flip",
+        tactic: "random baseline entry",
+        triggers: { tradeRate: args.tradeRate },
+        modifiers: { none: true },
         confidence: 0.5,
         index,
         time: bar.isoTime
       };
     }
+  };
+}
+
+function traceEnabled(args, level) {
+  const levels = new Set(String(args.trace || "")
+    .split(",")
+    .map(v => v.trim().toLowerCase())
+    .filter(Boolean));
+  return levels.has("all") || levels.has(level) || (level === "events" && levels.has("orders"));
+}
+
+function isTruthy(value) {
+  return value === true || value === 1 || String(value).toLowerCase() === "true";
+}
+
+function cleanAction(value) {
+  const raw = String(value || "WAIT").toUpperCase();
+  return ["LONG", "SHORT", "HOLD", "WAIT", "EXIT"].includes(raw) ? raw : "WAIT";
+}
+
+function pushEvent(events, args, event) {
+  events.push(event);
+  if (isTruthy(args.streamTrace) && traceEnabled(args, "events")) {
+    console.log(JSON.stringify({ trace: "EVENT", ...event }));
+  }
+}
+
+function pushAnomaly(anomalies, args, anomaly) {
+  anomalies.push(anomaly);
+  if (isTruthy(args.streamTrace) && traceEnabled(args, "anomalies")) {
+    console.log(JSON.stringify({ trace: "ANOMALY", ...anomaly }));
+  }
+}
+
+function keepDecisionTrace(decisions, args, decision) {
+  if (!traceEnabled(args, "decisions")) return;
+  const mode = String(args.decisionTrace || "actions").toLowerCase();
+  const keep = mode === "all" || decision.action !== "WAIT";
+  if (!keep) return;
+  decisions.push(decision);
+  if (isTruthy(args.streamTrace)) {
+    console.log(JSON.stringify({ trace: "DECISION", ...decision }));
+  }
+}
+
+function buildDecisionTrace({ run, agentId, index, bar, prevBar, position, pending, equity, decision, decisionMs }) {
+  return {
+    run,
+    agentId,
+    index,
+    time: bar.isoTime,
+    knownUntil: index,
+    position: position?.side || "",
+    pending: pending?.side || "",
+    equity: round(equity),
+    open: bar.open,
+    high: bar.high,
+    low: bar.low,
+    close: bar.close,
+    closeChangeBps: prevBar ? round((bar.close / prevBar.close - 1) * 10000) : 0,
+    intent: decision.intent || decision.action,
+    action: cleanAction(decision.action),
+    reason: decision.reason || "",
+    tactic: decision.tactic || decision.reason || "",
+    confidence: decision.confidence ?? "",
+    decisionMs: round(decisionMs),
+    triggers: decision.triggers || decision.inputs || {},
+    modifiers: decision.modifiers || {},
+    risk: decision.risk || {},
+    size: decision.size || {},
+    veto: decision.veto || ""
   };
 }
 
@@ -165,22 +250,56 @@ function runSimulation(candles, args, run) {
   let pending = null;
   const trades = [];
   const events = [];
+  const decisions = [];
+  const anomalies = [];
   const latencySamples = [];
+  const agentId = `${agent.name}-${run}`;
+
+  pushEvent(events, args, {
+    run,
+    agentId,
+    type: "RUN_START",
+    index: 0,
+    time: candles[0]?.isoTime || "",
+    knownUntil: 0,
+    action: "START",
+    reason: "simulation started",
+    equity
+  });
 
   for (let i = 0; i < candles.length; i++) {
     const bar = candles[i];
+    let lifecycleEvent = "";
 
     if (pending && pending.fillIndex <= i && !position) {
       if (rand() < args.missProbability) {
-        events.push({ type: "MISS", index: i, side: pending.side, reason: "stress miss" });
+        lifecycleEvent = "ORDER_MISSED";
+        pushEvent(events, args, {
+          run,
+          agentId,
+          type: "ORDER_MISSED",
+          index: i,
+          time: bar.isoTime,
+          knownUntil: i,
+          action: "MISS",
+          side: pending.side,
+          reason: "stress miss",
+          equity,
+          position: "",
+          decisionIndex: pending.decisionIndex,
+          fillIndex: pending.fillIndex,
+          delayBars: pending.stress.entryDelayBars,
+          slippageBps: pending.stress.slippageBps
+        });
         pending = null;
       } else {
-        const stress = sampleStress(rand, args);
+        const stress = pending.stress;
         latencySamples.push(stress.entryDelayBars);
         const sideSign = pending.side === "LONG" ? 1 : -1;
         const entry = bar.open * (1 + sideSign * stress.slippageBps / 10000);
         const notional = equity * args.allocation;
         equity -= notional * stress.slippageBps / 10000;
+        lifecycleEvent = "ORDER_FILLED";
         position = {
           side: pending.side,
           sideSign,
@@ -195,7 +314,25 @@ function runSimulation(candles, args, run) {
           stress,
           decision: pending.decision
         };
-        events.push({ type: "ENTRY", index: i, side: position.side, price: entry, stress });
+        pushEvent(events, args, {
+          run,
+          agentId,
+          type: "ORDER_FILLED",
+          index: i,
+          time: bar.isoTime,
+          knownUntil: i,
+          action: position.side,
+          side: position.side,
+          reason: "entry filled",
+          price: entry,
+          equity,
+          position: position.side,
+          decisionIndex: pending.decisionIndex,
+          fillIndex: pending.fillIndex,
+          delayBars: stress.entryDelayBars,
+          slippageBps: stress.slippageBps,
+          details: { entryStress: stress }
+        });
         pending = null;
       }
     }
@@ -203,6 +340,42 @@ function runSimulation(candles, args, run) {
     if (position) {
       const exit = exitSignal(position, bar, i, args);
       if (exit) {
+        lifecycleEvent = lifecycleEvent ? `${lifecycleEvent}+EXIT` : "EXIT";
+        if (exit.ambiguous) {
+          pushAnomaly(anomalies, args, {
+            run,
+            agentId,
+            index: i,
+            time: bar.isoTime,
+            knownUntil: i,
+            type: "INTRABAR_EXIT_AMBIGUITY",
+            severity: "warning",
+            message: "stop and take were both reachable inside the same candle; simulator chose stop first",
+            details: {
+              side: position.side,
+              stop: position.stop,
+              take: position.take,
+              high: bar.high,
+              low: bar.low
+            }
+          });
+        }
+        pushEvent(events, args, {
+          run,
+          agentId,
+          type: "EXIT_DECISION",
+          index: i,
+          time: bar.isoTime,
+          knownUntil: i,
+          action: "EXIT",
+          side: position.side,
+          reason: exit.reason,
+          price: exit.price,
+          equity,
+          position: position.side,
+          decisionIndex: position.decisionIndex,
+          barsHeld: i - position.entryIndex
+        });
         const exitStress = sampleStress(rand, args);
         const exitPrice = exit.price * (1 - position.sideSign * exitStress.slippageBps / 10000);
         const gross = position.notional * ((exitPrice - position.entry) / position.entry) * position.sideSign;
@@ -229,23 +402,180 @@ function runSimulation(candles, args, run) {
           exitStress
         };
         trades.push(trade);
-        events.push({ type: "EXIT", index: i, side: position.side, price: exitPrice, pnl, reason: exit.reason });
+        if (i === position.entryIndex) {
+          pushAnomaly(anomalies, args, {
+            run,
+            agentId,
+            index: i,
+            time: bar.isoTime,
+            knownUntil: i,
+            type: "ENTRY_EXIT_SAME_CANDLE",
+            severity: "warning",
+            message: "position entered and exited on the same candle; OHLC order is model-dependent",
+            details: {
+              side: position.side,
+              entryIndex: position.entryIndex,
+              exitIndex: i,
+              exitReason: exit.reason
+            }
+          });
+        }
+        if (!Number.isFinite(pnl) || !Number.isFinite(equity)) {
+          pushAnomaly(anomalies, args, {
+            run,
+            agentId,
+            index: i,
+            time: bar.isoTime,
+            knownUntil: i,
+            type: "BAD_NUMERIC_RESULT",
+            severity: "error",
+            message: "exit produced non-finite pnl or equity",
+            details: { pnl, equity, trade }
+          });
+        }
+        pushEvent(events, args, {
+          run,
+          agentId,
+          type: "EXIT",
+          index: i,
+          time: bar.isoTime,
+          knownUntil: i,
+          action: "EXIT",
+          side: position.side,
+          reason: exit.reason,
+          price: exitPrice,
+          pnl,
+          equity,
+          position: "",
+          decisionIndex: position.decisionIndex,
+          barsHeld: i - position.entryIndex,
+          slippageBps: exitStress.slippageBps,
+          details: { exitStress }
+        });
         position = null;
       }
     }
 
-    if (!position && !pending && i < candles.length - args.maxLatencyBars - 2) {
+    if (lifecycleEvent && !position && !pending && i < candles.length - args.maxLatencyBars - 2) {
+      pushEvent(events, args, {
+        run,
+        agentId,
+        type: "DECISION_BLOCKED",
+        index: i,
+        time: bar.isoTime,
+        knownUntil: i,
+        action: "WAIT",
+        reason: `blocked same-candle decision after ${lifecycleEvent}`,
+        equity,
+        position: ""
+      });
+    }
+
+    if (!lifecycleEvent && !position && !pending && i < candles.length - args.maxLatencyBars - 2) {
+      const decisionStart = process.hrtime.bigint();
       const decision = agent.decide(i, bar);
-      if (decision.action !== "WAIT") {
+      const decisionMs = Number(process.hrtime.bigint() - decisionStart) / 1e6;
+      const action = cleanAction(decision.action);
+      if (action !== String(decision.action || "").toUpperCase()) {
+        pushAnomaly(anomalies, args, {
+          run,
+          agentId,
+          index: i,
+          time: bar.isoTime,
+          knownUntil: i,
+          type: "INVALID_ACTION_NORMALIZED",
+          severity: "warning",
+          message: "agent returned an unknown action; normalized by runner",
+          details: { rawAction: decision.action, normalizedAction: action }
+        });
+      }
+      if (decision.index != null && decision.index !== i) {
+        pushAnomaly(anomalies, args, {
+          run,
+          agentId,
+          index: i,
+          time: bar.isoTime,
+          knownUntil: i,
+          type: "DECISION_INDEX_MISMATCH",
+          severity: "warning",
+          message: "decision reported a different candle index than the runner supplied",
+          details: { decisionIndex: decision.index, runnerIndex: i }
+        });
+      }
+      if (decision.time != null && decision.time !== bar.isoTime) {
+        pushAnomaly(anomalies, args, {
+          run,
+          agentId,
+          index: i,
+          time: bar.isoTime,
+          knownUntil: i,
+          type: "DECISION_TIME_MISMATCH",
+          severity: "warning",
+          message: "decision reported a different candle time than the runner supplied",
+          details: { decisionTime: decision.time, runnerTime: bar.isoTime }
+        });
+      }
+
+      const decisionTrace = buildDecisionTrace({
+        run,
+        agentId,
+        index: i,
+        bar,
+        prevBar: candles[i - 1],
+        position,
+        pending,
+        equity,
+        decision: { ...decision, action },
+        decisionMs
+      });
+      keepDecisionTrace(decisions, args, decisionTrace);
+
+      if (action !== "WAIT") {
         const stress = sampleStress(rand, args);
         pending = {
-          side: decision.action,
-          decision,
+          side: action,
+          decision: { ...decision, action },
           decisionIndex: i,
           decisionTime: bar.isoTime,
-          fillIndex: i + 1 + stress.entryDelayBars
+          fillIndex: i + 1 + stress.entryDelayBars,
+          stress
         };
-        events.push({ type: "ORDER", index: i, side: decision.action, fillIndex: pending.fillIndex, stress });
+        if (pending.fillIndex <= i) {
+          pushAnomaly(anomalies, args, {
+            run,
+            agentId,
+            index: i,
+            time: bar.isoTime,
+            knownUntil: i,
+            type: "FILL_NOT_AFTER_DECISION",
+            severity: "error",
+            message: "entry fill index is not after decision index",
+            details: { fillIndex: pending.fillIndex, decisionIndex: i }
+          });
+        }
+        pushEvent(events, args, {
+          run,
+          agentId,
+          type: "ORDER_SUBMITTED",
+          index: i,
+          time: bar.isoTime,
+          knownUntil: i,
+          action,
+          side: action,
+          reason: decision.reason || "entry requested",
+          equity,
+          position: "",
+          decisionIndex: i,
+          fillIndex: pending.fillIndex,
+          delayBars: stress.entryDelayBars,
+          slippageBps: stress.slippageBps,
+          details: {
+            intent: decision.intent || action,
+            tactic: decision.tactic || decision.reason || "",
+            triggers: decision.triggers || decision.inputs || {},
+            modifiers: decision.modifiers || {}
+          }
+        });
       }
     }
 
@@ -256,7 +586,25 @@ function runSimulation(candles, args, run) {
     maxDrawdown = Math.max(maxDrawdown, peak ? (peak - mtm) / peak : 0);
   }
 
-  return summarizeRun(run, args, equity, maxDrawdown, trades, events, latencySamples);
+  pushEvent(events, args, {
+    run,
+    agentId,
+    type: "RUN_SUMMARY",
+    index: candles.length - 1,
+    time: candles.at(-1)?.isoTime || "",
+    knownUntil: candles.length - 1,
+    action: "SUMMARY",
+    reason: "simulation finished",
+    equity,
+    position: position?.side || "",
+    details: {
+      maxDrawdown,
+      tradeCount: trades.length,
+      missedOrders: events.filter(e => e.type === "ORDER_MISSED").length
+    }
+  });
+
+  return summarizeRun(run, args, equity, maxDrawdown, trades, events, decisions, anomalies, latencySamples);
 }
 
 function sampleStress(rand, args) {
@@ -266,20 +614,24 @@ function sampleStress(rand, args) {
 }
 
 function exitSignal(position, bar, index, args) {
+  let hitStop;
+  let hitTake;
   if (position.side === "LONG") {
-    if (bar.low <= position.stop) return { reason: "stop", price: position.stop };
-    if (bar.high >= position.take) return { reason: "take", price: position.take };
+    hitStop = bar.low <= position.stop;
+    hitTake = bar.high >= position.take;
   } else {
-    if (bar.high >= position.stop) return { reason: "stop", price: position.stop };
-    if (bar.low <= position.take) return { reason: "take", price: position.take };
+    hitStop = bar.high >= position.stop;
+    hitTake = bar.low <= position.take;
   }
+  if (hitStop) return { reason: "stop", price: position.stop, ambiguous: Boolean(hitTake) };
+  if (hitTake) return { reason: "take", price: position.take };
   if (index - position.entryIndex >= args.maxHold) {
     return { reason: "time", price: bar.close };
   }
   return null;
 }
 
-function summarizeRun(run, args, finalEquity, maxDrawdown, trades, events, latencySamples) {
+function summarizeRun(run, args, finalEquity, maxDrawdown, trades, events, decisions, anomalies, latencySamples) {
   const wins = trades.filter(t => t.pnl > 0);
   const grossProfit = wins.reduce((s, t) => s + t.pnl, 0);
   const grossLoss = Math.abs(trades.filter(t => t.pnl <= 0).reduce((s, t) => s + t.pnl, 0));
@@ -294,17 +646,91 @@ function summarizeRun(run, args, finalEquity, maxDrawdown, trades, events, laten
     winRate: trades.length ? wins.length / trades.length : 0,
     profitFactor: grossLoss ? grossProfit / grossLoss : grossProfit > 0 ? Infinity : 0,
     averageLatencyBars: latencySamples.length ? latencySamples.reduce((s, v) => s + v, 0) / latencySamples.length : 0,
-    missedOrders: events.filter(e => e.type === "MISS").length,
+    missedOrders: events.filter(e => e.type === "ORDER_MISSED").length,
+    anomalyCount: anomalies.length,
     trades,
-    events
+    events,
+    decisions,
+    anomalies
   };
 }
 
-function summarizeExperiment(args, candles, runs) {
+function collectTrace(args, runs) {
+  return {
+    trades: traceEnabled(args, "trades") ? runs.flatMap(r => r.trades || []) : [],
+    events: traceEnabled(args, "events") ? runs.flatMap(r => r.events || []) : [],
+    decisions: traceEnabled(args, "decisions") ? runs.flatMap(r => r.decisions || []) : [],
+    anomalies: traceEnabled(args, "anomalies") ? runs.flatMap(r => r.anomalies || []) : []
+  };
+}
+
+function buildManifest(args, candles, generatedAt, command) {
+  return {
+    runId: cleanName(args.name || "latest"),
+    generatedAt,
+    gitSha: currentGitSha(),
+    gitDirty: currentGitDirty(),
+    command,
+    data: {
+      symbol: args.symbol,
+      timeframe: args.timeframe,
+      from: candles[0]?.isoTime,
+      to: candles.at(-1)?.isoTime,
+      bars: candles.length,
+      db: path.relative(ROOT, args.db)
+    },
+    agent: {
+      name: args.agent,
+      seed: args.seed,
+      tradeRate: args.tradeRate
+    },
+    workers: args.workers,
+    trace: {
+      levels: args.trace,
+      decisionTrace: args.decisionTrace,
+      streamTrace: isTruthy(args.streamTrace)
+    },
+    stress: {
+      minLatencyBars: args.minLatencyBars,
+      maxLatencyBars: args.maxLatencyBars,
+      minSlippageBps: args.minSlippageBps,
+      maxSlippageBps: args.maxSlippageBps,
+      missProbability: args.missProbability
+    },
+    exitRules: {
+      stopBps: args.stopBps,
+      takeBps: args.takeBps,
+      maxHold: args.maxHold
+    },
+    allocation: args.allocation,
+    startingEquity: args.startingEquity
+  };
+}
+
+function currentGitSha() {
+  const res = spawnSync("git", ["rev-parse", "--short", "HEAD"], {
+    cwd: ROOT,
+    encoding: "utf8"
+  });
+  return res.status === 0 ? res.stdout.trim() : "";
+}
+
+function currentGitDirty() {
+  const res = spawnSync("git", ["status", "--short"], {
+    cwd: ROOT,
+    encoding: "utf8"
+  });
+  return res.status === 0 ? Boolean(res.stdout.trim()) : null;
+}
+
+function summarizeExperiment(args, candles, runs, command) {
   const sorted = [...runs].sort((a, b) => b.netReturn - a.netReturn);
   const returns = runs.map(r => r.netReturn);
+  const generatedAt = new Date().toISOString();
+  const trace = collectTrace(args, runs);
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt,
+    manifest: buildManifest(args, candles, generatedAt, command),
     args,
     bars: candles.length,
     from: candles[0]?.isoTime,
@@ -318,38 +744,125 @@ function summarizeExperiment(args, candles, runs) {
     best: stripHeavy(sorted[0]),
     worst: stripHeavy(sorted.at(-1)),
     runs: runs.map(stripHeavy),
-    bestTrades: sorted[0]?.trades || []
+    bestTrades: sorted[0]?.trades || [],
+    traceCounts: {
+      trades: trace.trades.length,
+      events: trace.events.length,
+      decisions: trace.decisions.length,
+      anomalies: trace.anomalies.length
+    },
+    trace
   };
 }
 
 function writeOutputs(summary) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   const base = cleanName(summary.args.name || "latest");
-  fs.writeFileSync(path.join(OUTPUT_DIR, `${base}.json`), JSON.stringify(summary, null, 2));
-  fs.writeFileSync(path.join(OUTPUT_DIR, `${base}.csv`), renderCsv(summary));
-  fs.writeFileSync(path.join(OUTPUT_DIR, `${base}.html`), renderHtml(summary));
+  const outputs = {};
+  const { trace, ...jsonSummary } = summary;
+  outputs.JSON = path.join(OUTPUT_DIR, `${base}.json`);
+  outputs.CSV = path.join(OUTPUT_DIR, `${base}.csv`);
+  outputs.HTML = path.join(OUTPUT_DIR, `${base}.html`);
+  fs.writeFileSync(outputs.JSON, JSON.stringify(jsonSummary, null, 2));
+  fs.writeFileSync(outputs.CSV, renderCsv(summary));
+  fs.writeFileSync(outputs.HTML, renderHtml(summary));
+
+  if (traceEnabled(summary.args, "trades")) {
+    outputs.TRADES = path.join(OUTPUT_DIR, `${base}.trades.csv`);
+    fs.writeFileSync(outputs.TRADES, renderTradeCsv(trace.trades));
+  }
+  if (traceEnabled(summary.args, "events")) {
+    outputs.EVENTS = path.join(OUTPUT_DIR, `${base}.events.csv`);
+    fs.writeFileSync(outputs.EVENTS, renderEventCsv(trace.events));
+  }
+  if (traceEnabled(summary.args, "decisions")) {
+    outputs.DECISIONS = path.join(OUTPUT_DIR, `${base}.decisions.csv`);
+    fs.writeFileSync(outputs.DECISIONS, renderDecisionCsv(trace.decisions));
+  }
+  if (traceEnabled(summary.args, "anomalies")) {
+    outputs.ANOMALIES = path.join(OUTPUT_DIR, `${base}.anomalies.csv`);
+    fs.writeFileSync(outputs.ANOMALIES, renderAnomalyCsv(trace.anomalies));
+  }
+
   if (base !== "latest") {
-    fs.writeFileSync(path.join(OUTPUT_DIR, "latest.json"), JSON.stringify(summary, null, 2));
+    fs.writeFileSync(path.join(OUTPUT_DIR, "latest.json"), JSON.stringify(jsonSummary, null, 2));
     fs.writeFileSync(path.join(OUTPUT_DIR, "latest.csv"), renderCsv(summary));
     fs.writeFileSync(path.join(OUTPUT_DIR, "latest.html"), renderHtml(summary));
+    if (outputs.TRADES) fs.writeFileSync(path.join(OUTPUT_DIR, "latest.trades.csv"), renderTradeCsv(trace.trades));
+    if (outputs.EVENTS) fs.writeFileSync(path.join(OUTPUT_DIR, "latest.events.csv"), renderEventCsv(trace.events));
+    if (outputs.DECISIONS) fs.writeFileSync(path.join(OUTPUT_DIR, "latest.decisions.csv"), renderDecisionCsv(trace.decisions));
+    if (outputs.ANOMALIES) fs.writeFileSync(path.join(OUTPUT_DIR, "latest.anomalies.csv"), renderAnomalyCsv(trace.anomalies));
   }
+  return outputs;
 }
 
 function renderCsv(summary) {
   const rows = [
-    ["run", "netReturn", "tradeCount", "winRate", "profitFactor", "maxDrawdown", "averageLatencyBars", "missedOrders"],
+    ["run", "netReturn", "tradeCount", "winRate", "profitFactor", "maxDrawdown", "averageLatencyBars", "missedOrders", "anomalyCount"],
     ...summary.runs.map(r => [
-      r.run, r.netReturn, r.tradeCount, r.winRate, r.profitFactor, r.maxDrawdown, r.averageLatencyBars, r.missedOrders
+      r.run, r.netReturn, r.tradeCount, r.winRate, r.profitFactor, r.maxDrawdown, r.averageLatencyBars, r.missedOrders, r.anomalyCount
     ])
   ];
   return rows.map(row => row.map(csvCell).join(",")).join("\n");
+}
+
+function renderTradeCsv(trades) {
+  return renderRows([
+    "run", "side", "decisionIndex", "decisionTime", "entryIndex", "entryTime",
+    "exitIndex", "exitTime", "entry", "exit", "pnl", "pnlBps", "reason",
+    "barsHeld", "decision.intent", "decision.action", "decision.reason",
+    "decision.tactic", "entryStress.entryDelayBars", "entryStress.slippageBps",
+    "exitStress.slippageBps"
+  ], trades);
+}
+
+function renderEventCsv(events) {
+  return renderRows([
+    "run", "agentId", "type", "index", "time", "knownUntil", "action", "side",
+    "reason", "price", "pnl", "equity", "position", "decisionIndex", "fillIndex",
+    "delayBars", "slippageBps", "barsHeld", "details"
+  ], events);
+}
+
+function renderDecisionCsv(decisions) {
+  return renderRows([
+    "run", "agentId", "index", "time", "knownUntil", "position", "pending",
+    "equity", "open", "high", "low", "close", "closeChangeBps", "intent",
+    "action", "reason", "tactic", "confidence", "decisionMs", "triggers",
+    "modifiers", "risk", "size", "veto"
+  ], decisions);
+}
+
+function renderAnomalyCsv(anomalies) {
+  return renderRows([
+    "run", "agentId", "index", "time", "knownUntil", "type", "severity",
+    "message", "details"
+  ], anomalies);
+}
+
+function renderRows(columns, rows) {
+  return [
+    columns,
+    ...rows.map(row => columns.map(column => valueAt(row, column)))
+  ].map(row => row.map(csvCell).join(",")).join("\n");
+}
+
+function valueAt(row, pathName) {
+  const parts = pathName.split(".");
+  let value = row;
+  for (const part of parts) {
+    value = value?.[part];
+  }
+  if (value == null) return "";
+  if (typeof value === "object") return JSON.stringify(value);
+  return value;
 }
 
 function renderHtml(summary) {
   const rows = summary.runs
     .slice()
     .sort((a, b) => b.netReturn - a.netReturn)
-    .map(r => `<tr><td>${r.run}</td><td>${pct(r.netReturn)}</td><td>${r.tradeCount}</td><td>${pct(r.winRate)}</td><td>${pf(r.profitFactor)}</td><td>${pct(r.maxDrawdown)}</td><td>${round(r.averageLatencyBars)}</td><td>${r.missedOrders}</td></tr>`)
+    .map(r => `<tr><td>${r.run}</td><td>${pct(r.netReturn)}</td><td>${r.tradeCount}</td><td>${pct(r.winRate)}</td><td>${pf(r.profitFactor)}</td><td>${pct(r.maxDrawdown)}</td><td>${round(r.averageLatencyBars)}</td><td>${r.missedOrders}</td><td>${r.anomalyCount}</td></tr>`)
     .join("\n");
 
   return `<!doctype html>
@@ -371,8 +884,9 @@ td:first-child,th:first-child{text-align:left}
 <p>${summary.agent}, ${summary.runCount} runs, ${summary.bars} bars, ${summary.from} -> ${summary.to}</p>
 <p>Average ${pct(summary.averageNetReturn)}, median ${pct(summary.medianNetReturn)}, p05 ${pct(summary.p05NetReturn)}, p95 ${pct(summary.p95NetReturn)}</p>
 <p>Best run #${summary.best.run}: ${pct(summary.best.netReturn)}. Worst run #${summary.worst.run}: ${pct(summary.worst.netReturn)}.</p>
+<p>Trace rows: ${summary.traceCounts.trades} trades, ${summary.traceCounts.events} events, ${summary.traceCounts.decisions} decisions, ${summary.traceCounts.anomalies} anomalies.</p>
 <table>
-<thead><tr><th>Run</th><th>Net</th><th>Trades</th><th>Win</th><th>PF</th><th>DD</th><th>Latency</th><th>Misses</th></tr></thead>
+<thead><tr><th>Run</th><th>Net</th><th>Trades</th><th>Win</th><th>PF</th><th>DD</th><th>Latency</th><th>Misses</th><th>Anom</th></tr></thead>
 <tbody>${rows}</tbody>
 </table>
 </body>
@@ -380,7 +894,7 @@ td:first-child,th:first-child{text-align:left}
 }
 
 function stripHeavy(run) {
-  const { trades, events, ...light } = run;
+  const { trades, events, decisions, anomalies, ...light } = run;
   return light;
 }
 
@@ -429,10 +943,13 @@ async function runMain() {
     chunks[run % workerCount].push(run);
   }
 
-  const batches = await Promise.all(chunks.map(chunk => runWorker(candles, args, chunk)));
+  const batches = isTruthy(args.streamTrace) && workerCount === 1
+    ? [chunks[0].map(run => runSimulation(candles, args, run))]
+    : await Promise.all(chunks.map(chunk => runWorker(candles, args, chunk)));
   const runs = batches.flat().sort((a, b) => a.run - b.run);
-  const summary = summarizeExperiment(args, candles, runs);
-  writeOutputs(summary);
+  const command = process.argv.map(arg => /\s/.test(arg) ? JSON.stringify(arg) : arg).join(" ");
+  const summary = summarizeExperiment(args, candles, runs, command);
+  const outputs = writeOutputs(summary);
 
   console.log(`Agent: ${summary.agent}`);
   console.log(`Bars: ${summary.bars} ${summary.from} -> ${summary.to}`);
@@ -441,10 +958,10 @@ async function runMain() {
   console.log(`Median net return: ${pct(summary.medianNetReturn)}`);
   console.log(`Best run: #${summary.best.run} ${pct(summary.best.netReturn)}, trades ${summary.best.tradeCount}, PF ${pf(summary.best.profitFactor)}`);
   console.log(`Worst run: #${summary.worst.run} ${pct(summary.worst.netReturn)}, trades ${summary.worst.tradeCount}, PF ${pf(summary.worst.profitFactor)}`);
-  const base = cleanName(args.name || "latest");
-  console.log(`JSON: ${path.relative(ROOT, path.join(OUTPUT_DIR, `${base}.json`))}`);
-  console.log(`CSV: ${path.relative(ROOT, path.join(OUTPUT_DIR, `${base}.csv`))}`);
-  console.log(`HTML: ${path.relative(ROOT, path.join(OUTPUT_DIR, `${base}.html`))}`);
+  console.log(`Trace rows: ${summary.traceCounts.trades} trades, ${summary.traceCounts.events} events, ${summary.traceCounts.decisions} decisions, ${summary.traceCounts.anomalies} anomalies`);
+  for (const [label, file] of Object.entries(outputs)) {
+    console.log(`${label}: ${path.relative(ROOT, file)}`);
+  }
 }
 
 function runWorker(candles, args, runs) {
