@@ -7,15 +7,65 @@
   <title>Price Watch — windowed</title>
   <style>
     :root {
+      --bg: #f4f0e8;
+      --panel: #fffaf0;
+      --surface: #ffffff;
+      --surface-2: #f0e7d7;
+      --surface-soft: rgba(255, 250, 240, 0.92);
+      --border: #d6c7ad;
+      --row-border: #eadcc6;
+      --text: #221b13;
+      --muted: #6e6255;
+      --green: #3fb950;
+      --red: #c93c37;
+      --blue: #2468b2;
+      --accent: #9c6a1c;
+      --control: #fff4db;
+      --control-hover: #f4dfb8;
+      --trace-bg: #f7efe1;
+      --trace-card: #fffaf0;
+      --trace-row-hover: #f1e3cc;
+      --danger-bg: #fff0ec;
+      --danger-border: #e3aaa0;
+      --chart-bg: #fffaf0;
+      --chart-text: #221b13;
+      --chart-muted: #6e6255;
+      --chart-grid: #eadcc6;
+      --chart-border: #d6c7ad;
+      --head-line: #d08a00;
+      --head-glow: rgba(208, 138, 0, 0.55);
+      --arena-glow: rgba(36, 104, 178, 0.14);
+    }
+
+    body[data-theme="dark"] {
       --bg: #0d1117;
       --panel: #161b22;
+      --surface: #0d1117;
+      --surface-2: #10151d;
+      --surface-soft: rgba(16, 21, 29, 0.92);
       --border: #30363d;
+      --row-border: #1f2630;
       --text: #c9d1d9;
       --muted: #8b949e;
       --green: #3fb950;
       --red: #f85149;
       --blue: #58a6ff;
       --accent: #1f6feb;
+      --control: #21262d;
+      --control-hover: #30363d;
+      --trace-bg: #0f141b;
+      --trace-card: #0d1117;
+      --trace-row-hover: #161b22;
+      --danger-bg: #1c1214;
+      --danger-border: #5c2b2b;
+      --chart-bg: #0d1117;
+      --chart-text: #c9d1d9;
+      --chart-muted: #8b949e;
+      --chart-grid: #21262d;
+      --chart-border: #30363d;
+      --head-line: #f0b429;
+      --head-glow: rgba(240, 180, 41, 0.75);
+      --arena-glow: rgba(88, 166, 255, 0.14);
     }
 
     * {
@@ -81,7 +131,7 @@
       align-items: center;
       gap: 0.35rem;
       padding: 0.4rem 1rem;
-      background: #10151d;
+      background: var(--surface-2);
       border-bottom: 1px solid var(--border);
       flex-wrap: wrap;
     }
@@ -92,7 +142,7 @@
     }
 
     button {
-      background: #21262d;
+      background: var(--control);
       border: 1px solid var(--border);
       color: var(--text);
       padding: 0.3rem 0.7rem;
@@ -103,7 +153,7 @@
     }
 
     button:hover {
-      background: #30363d;
+      background: var(--control-hover);
     }
 
     #scrubber {
@@ -117,7 +167,7 @@
     }
 
     select {
-      background: #21262d;
+      background: var(--control);
       border: 1px solid var(--border);
       color: var(--text);
       padding: 0.25rem 0.4rem;
@@ -142,7 +192,7 @@
     #hist-track {
       position: relative;
       height: 14px;
-      background: #21262d;
+      background: var(--control);
       border-radius: 3px;
       cursor: pointer;
       border: 1px solid var(--border);
@@ -189,8 +239,8 @@
       top: 0;
       bottom: 0;
       width: 1px;
-      background: #f0b429;
-      box-shadow: 0 0 8px rgba(240, 180, 41, 0.75);
+      background: var(--head-line);
+      box-shadow: 0 0 8px var(--head-glow);
       pointer-events: none;
     }
 
@@ -218,7 +268,7 @@
       font-weight: 600;
       padding: 0.15rem 0.5rem;
       border-radius: 3px;
-      background: #21262d;
+      background: var(--control);
     }
 
     #agent-decision[data-action="long"] {
@@ -265,15 +315,15 @@
       white-space: pre-wrap;
       color: var(--red);
       padding: 1rem;
-      background: #1c1214;
-      border-top: 1px solid #5c2b2b;
+      background: var(--danger-bg);
+      border-top: 1px solid var(--danger-border);
     }
 
     #arena-brief {
       border-bottom: 1px solid var(--border);
       background:
-        radial-gradient(circle at top left, rgba(88, 166, 255, 0.14), transparent 34rem),
-        #0d1117;
+        radial-gradient(circle at top left, var(--arena-glow), transparent 34rem),
+        var(--surface);
       padding: 0.8rem 1rem;
     }
 
@@ -301,7 +351,7 @@
 
     .arena-badge {
       border: 1px solid var(--border);
-      background: #10151d;
+      background: var(--surface-2);
       color: var(--muted);
       padding: 0.35rem 0.55rem;
       font-size: 0.72rem;
@@ -315,7 +365,7 @@
 
     .arena-step {
       border: 1px solid var(--border);
-      background: rgba(16, 21, 29, 0.92);
+      background: var(--surface-soft);
       padding: 0.6rem;
     }
 
@@ -333,7 +383,7 @@
 
     #trace-panel {
       border-top: 1px solid var(--border);
-      background: #0f141b;
+      background: var(--trace-bg);
       display: grid;
       grid-template-columns: minmax(360px, 1fr) minmax(360px, 1.1fr);
       gap: 0.65rem;
@@ -377,7 +427,7 @@
 
     .trace-card {
       border: 1px solid var(--border);
-      background: #0d1117;
+      background: var(--trace-card);
       padding: 0.5rem;
       min-height: 4.5rem;
     }
@@ -409,7 +459,7 @@
       overflow: auto;
       max-height: 190px;
       border: 1px solid var(--border);
-      background: #0d1117;
+      background: var(--trace-card);
     }
 
     .trace-list-title {
@@ -427,14 +477,14 @@
       border: 0;
       border-radius: 0;
       background: transparent;
-      border-bottom: 1px solid #1f2630;
+      border-bottom: 1px solid var(--row-border);
       padding: 0.24rem 0.35rem;
       color: var(--text);
       font-size: 0.68rem;
     }
 
     .trace-row:hover {
-      background: #161b22;
+      background: var(--trace-row-hover);
     }
 
     .trace-anomaly {
@@ -499,7 +549,7 @@
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 
-<body data-mode="arena">
+<body data-mode="arena" data-theme="light">
   <header>
     <h1 id="app-title">GRIND ARENA</h1>
     <nav class="mode-tabs" aria-label="app mode">
@@ -507,6 +557,7 @@
       <button data-mode-button="arena" type="button">Arena</button>
       <button data-mode-button="evidence" type="button">Evidence</button>
     </nav>
+    <button id="theme-toggle" type="button">lights off</button>
     <span id="mode-status">story + replay</span>
     <span id="status">starting…</span>
     <div class="controls">

@@ -28,28 +28,30 @@ export function createPriceChart({ $, chartsLib }) {
     headLine.hidden = true;
     priceHost.appendChild(headLine);
 
+    const theme = chartTheme();
     chart = chartsLib.createChart(priceHost, {
       width: priceHost.clientWidth,
       height: priceHost.clientHeight,
-      layout: { background: { type: "solid", color: "#0d1117" }, textColor: "#c9d1d9" },
-      grid: { vertLines: { color: "#21262d" }, horzLines: { color: "#21262d" } },
-      rightPriceScale: { borderColor: "#30363d" },
-      timeScale: { borderColor: "#30363d", timeVisible: true, secondsVisible: false },
+      layout: { background: { type: "solid", color: theme.bg }, textColor: theme.text },
+      grid: { vertLines: { color: theme.grid }, horzLines: { color: theme.grid } },
+      rightPriceScale: { borderColor: theme.border },
+      timeScale: { borderColor: theme.border, timeVisible: true, secondsVisible: false },
       crosshair: { mode: chartsLib.CrosshairMode.Normal }
     });
 
     candleSeries = chart.addCandlestickSeries({
-      upColor: "#3fb950",
-      downColor: "#f85149",
-      borderUpColor: "#3fb950",
-      borderDownColor: "#f85149",
-      wickUpColor: "#3fb950",
-      wickDownColor: "#f85149"
+      upColor: theme.green,
+      downColor: theme.red,
+      borderUpColor: theme.green,
+      borderDownColor: theme.red,
+      wickUpColor: theme.green,
+      wickDownColor: theme.red
     });
 
     window.addEventListener("resize", () => {
       resize();
     });
+    window.addEventListener("themechange", applyTheme);
     chart.timeScale().subscribeVisibleLogicalRangeChange(updateHeadLine);
   }
 
@@ -81,7 +83,7 @@ export function createPriceChart({ $, chartsLib }) {
     setMarkerLayer("head", [{
       time: bar.time,
       position: "aboveBar",
-      color: "#f0b429",
+      color: chartTheme().head,
       shape: "circle",
       text: "HEAD"
     }]);
@@ -121,7 +123,7 @@ export function createPriceChart({ $, chartsLib }) {
 
     target.chart.priceScale(separatePane ? "right" : options.priceScaleId || meta.priceScaleId || "left").applyOptions({
       visible: true,
-      borderColor: "#30363d"
+      borderColor: chartTheme().border
     });
 
     const indicator = { fn: indicatorFn, line, options, pane: target.pane, chart: target.chart };
@@ -164,16 +166,17 @@ export function createPriceChart({ $, chartsLib }) {
     pane.dataset.indicator = options.name || meta.name || indicatorFn.name || "indicator";
     host.appendChild(pane);
 
+    const theme = chartTheme();
     const paneChart = chartsLib.createChart(pane, {
       width: pane.clientWidth,
       height: pane.clientHeight,
-      layout: { background: { type: "solid", color: "#0d1117" }, textColor: "#8b949e" },
-      grid: { vertLines: { color: "#21262d" }, horzLines: { color: "#21262d" } },
+      layout: { background: { type: "solid", color: theme.bg }, textColor: theme.muted },
+      grid: { vertLines: { color: theme.grid }, horzLines: { color: theme.grid } },
       rightPriceScale: {
-        borderColor: "#30363d",
+        borderColor: theme.border,
         scaleMargins: { top: 0.1, bottom: 0.1 }
       },
-      timeScale: { borderColor: "#30363d", timeVisible: true, secondsVisible: false },
+      timeScale: { borderColor: theme.border, timeVisible: true, secondsVisible: false },
       crosshair: { mode: chartsLib.CrosshairMode.Normal }
     });
 
@@ -210,6 +213,27 @@ export function createPriceChart({ $, chartsLib }) {
     }
   }
 
+  function applyTheme() {
+    if (!chart) return;
+    const theme = chartTheme();
+    applyChartTheme(chart, theme, theme.text);
+    if (candleSeries) {
+      candleSeries.applyOptions({
+        upColor: theme.green,
+        downColor: theme.red,
+        borderUpColor: theme.green,
+        borderDownColor: theme.red,
+        wickUpColor: theme.green,
+        wickDownColor: theme.red
+      });
+    }
+
+    const themedCharts = new Set(indicators.map(indicator => indicator.chart));
+    for (const indicatorChart of themedCharts) {
+      applyChartTheme(indicatorChart, theme, indicatorChart === chart ? theme.text : theme.muted);
+    }
+  }
+
   function updateHeadLine() {
     if (!chart || !headLine || !headBar) {
       if (headLine) headLine.hidden = true;
@@ -240,11 +264,39 @@ export function createPriceChart({ $, chartsLib }) {
   function addSensor(sensorFn, options = {}) {
     return addIndicator(sensorAdapter(sensorFn), {
       pane: "separate",
-      color: "#58a6ff",
+      color: chartTheme().blue,
       name: sensorFn.name || "sensor",
       ...options
     });
   }
+}
+
+function applyChartTheme(targetChart, theme, textColor) {
+  targetChart.applyOptions({
+    layout: { background: { type: "solid", color: theme.bg }, textColor },
+    grid: { vertLines: { color: theme.grid }, horzLines: { color: theme.grid } },
+    rightPriceScale: { borderColor: theme.border },
+    timeScale: { borderColor: theme.border, timeVisible: true, secondsVisible: false }
+  });
+}
+
+function chartTheme() {
+  return {
+    bg: cssVar("--chart-bg", "#0d1117"),
+    text: cssVar("--chart-text", "#c9d1d9"),
+    muted: cssVar("--chart-muted", "#8b949e"),
+    grid: cssVar("--chart-grid", "#21262d"),
+    border: cssVar("--chart-border", "#30363d"),
+    green: cssVar("--green", "#3fb950"),
+    red: cssVar("--red", "#f85149"),
+    blue: cssVar("--blue", "#58a6ff"),
+    head: cssVar("--head-line", "#f0b429")
+  };
+}
+
+function cssVar(name, fallback) {
+  const value = getComputedStyle(document.body).getPropertyValue(name).trim();
+  return value || fallback;
 }
 
 function normalizeIndicatorData(raw, bars) {

@@ -17,12 +17,15 @@ const MODES = {
 
 export function createViewMode({ $ }) {
   let active = document.body.dataset.mode || "arena";
+  let theme = document.body.dataset.theme || "light";
 
   function bind() {
     for (const button of document.querySelectorAll("[data-mode-button]")) {
       button.addEventListener("click", () => setMode(button.dataset.modeButton));
     }
+    $("theme-toggle")?.addEventListener("click", () => setTheme(theme === "light" ? "dark" : "light"));
     setMode(active);
+    setTheme(theme);
   }
 
   function setMode(mode) {
@@ -41,5 +44,18 @@ export function createViewMode({ $ }) {
     }
   }
 
-  return { bind, setMode };
+  function setTheme(nextTheme) {
+    theme = nextTheme === "dark" ? "dark" : "light";
+    document.body.dataset.theme = theme;
+
+    const button = $("theme-toggle");
+    if (button) {
+      button.textContent = theme === "light" ? "lights off" : "lights on";
+      button.setAttribute("aria-pressed", theme === "light" ? "true" : "false");
+    }
+
+    window.dispatchEvent(new CustomEvent("themechange", { detail: { theme } }));
+  }
+
+  return { bind, setMode, setTheme };
 }
