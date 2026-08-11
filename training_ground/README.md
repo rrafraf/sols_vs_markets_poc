@@ -22,6 +22,17 @@ Worker rule:
 - Use `-Workers 1` for debugging, visual replay, stream logs, and any future shared/group-memory work.
 - Use `-Workers 4` only for isolated throughput runs. Current workers do not share mutable state, but timing fields such as `decisionMs` are expected to differ.
 
+Known-issue reproducer:
+
+```powershell
+node training_ground\reproduce-same-candle.js
+```
+
+This uses synthetic candles to force `ENTRY_EXIT_SAME_CANDLE`. It proves the
+current execution model can enter and exit on the same candle when 1Min OHLC data
+crosses the stop/take range. It also verifies that no new same-candle order is
+submitted after `DECISION_BLOCKED`.
+
 Outputs:
 
 - `output/training-ground/<name>.json`

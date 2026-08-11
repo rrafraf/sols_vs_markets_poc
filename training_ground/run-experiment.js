@@ -975,11 +975,16 @@ function runWorker(candles, args, runs) {
   });
 }
 
-if (isMainThread) {
+module.exports = {
+  parseArgs,
+  runSimulation
+};
+
+if (isMainThread && require.main === module) {
   runMain().catch(err => {
     console.error(err.stack || err.message);
     process.exit(1);
   });
-} else {
+} else if (!isMainThread) {
   parentPort.postMessage(workerData.runs.map(run => runSimulation(workerData.candles, workerData.args, run)));
 }
