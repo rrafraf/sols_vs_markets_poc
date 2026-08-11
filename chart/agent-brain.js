@@ -21,9 +21,9 @@ const SPEC_RUNTIME_KEYS = new Set([
 
 export const agentSensors = resolveSensorSpecs(signalSpecs);
 
-// Convert chart history at one candle into the market view that strategy reads.
-// Trading intent stays in strategy.js: decisionAt(market).
-export function marketAt(index, bars, sensors = agentSensors) {
+// Convert chart history at one candle into the moment that strategy reads:
+// chart location + current sensor vibe. Trading intent stays in strategy.js.
+export function momentAt(index, bars, sensors = agentSensors) {
   const history = bars.slice(0, index + 1);
   const sensorValues = {};
 
@@ -51,21 +51,23 @@ export function marketAt(index, bars, sensors = agentSensors) {
   };
 }
 
-export function decide(market) {
-  const decision = decisionAt(market);
-  return decisionWithMarket(decision, market);
+export const marketAt = momentAt;
+
+export function decide(moment) {
+  const decision = decisionAt(moment);
+  return decisionWithMoment(decision, moment);
 }
 
-function decisionWithMarket(decision, market) {
+function decisionWithMoment(decision, moment) {
   if (decision == null || typeof decision !== "object") {
-    return { action: cleanAction(), reason: "strategy returned no decision", market };
+    return { action: cleanAction(), reason: "strategy returned no decision", moment };
   }
 
   return {
     ...decision,
     action: cleanAction(decision.action),
     reason: decision.reason || cleanAction(decision.action).toLowerCase(),
-    market
+    moment
   };
 }
 

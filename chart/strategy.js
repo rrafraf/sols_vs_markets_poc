@@ -3,7 +3,7 @@
 import { ACTION, cleanAction, isEntryAction } from "./actions.js";
 
 // User-facing strategy file.
-// Read: "decision at this market is this action".
+// Read: "decision at this moment is this action".
 
 const BASE_SIZE_EQUITY_FRACTION = 0.0025;
 const MEMORY_HORIZON_BARS = 8;
@@ -11,10 +11,10 @@ const MEMORY_MIN_SAMPLES = 4;
 const MEMORY_VETO_TRAUMA = 0.65;
 const RISK_LOOKBACK_BARS = 60;
 
-export function decisionAt(market) {
-  const inputs = inputsAt(market);
+export function decisionAt(moment) {
+  const inputs = inputsAt(moment);
   const desiredAction = desiredActionAt(inputs);
-  const details = decisionDetails(market, desiredAction, inputs);
+  const details = decisionDetails(moment, desiredAction, inputs);
 
   if (hasMissingInput(inputs)) {
     return action(ACTION.HOLD, "warming up divergence / acceleration / RSI level", details);
@@ -74,11 +74,11 @@ export function wait(reason = "wait", details = {}) {
   return action(ACTION.WAIT, reason, details);
 }
 
-function inputsAt(market) {
+function inputsAt(moment) {
   return {
-    divergence: market.sensors.rsi_divergence?.value,   // + bullish
-    accel: market.sensors.rsi_acceleration?.value,      // + RSI curving up
-    rsi: market.sensors.rsi_5_level?.value              // - low RSI, + high RSI
+    divergence: moment.sensors.rsi_divergence?.value,   // + bullish
+    accel: moment.sensors.rsi_acceleration?.value,      // + RSI curving up
+    rsi: moment.sensors.rsi_5_level?.value              // - low RSI, + high RSI
   };
 }
 
@@ -89,11 +89,11 @@ function desiredActionAt(inputs) {
   return ACTION.HOLD;
 }
 
-function decisionDetails(market, desiredAction, inputs) {
+function decisionDetails(moment, desiredAction, inputs) {
   const belief = beliefAt(inputs);
-  const memory = memoryAt(market, desiredAction);
+  const memory = memoryAt(moment, desiredAction);
   const drive = driveAt(desiredAction, belief, memory);
-  const risk = riskAt(market, desiredAction);
+  const risk = riskAt(moment, desiredAction);
   const size = sizeAt(desiredAction, belief, drive, memory, risk);
 
   return {
@@ -151,7 +151,7 @@ function beliefAt(inputs) {
   };
 }
 
-function memoryAt(market, desiredAction) {
+function memoryAt(moment, desiredAction) {
   if (!isEntryAction(desiredAction)) {
     return {
       side: desiredAction,
@@ -165,10 +165,10 @@ function memoryAt(market, desiredAction) {
     };
   }
 
-  const bars = market.history || [];
-  const divergenceByTime = pointMap(market.sensors.rsi_divergence?.series);
-  const accelByTime = pointMap(market.sensors.rsi_acceleration?.series);
-  const rsiByTime = pointMap(market.sensors.rsi_5_level?.series);
+  const bars = moment.history || [];
+  const divergenceByTime = pointMap(moment.sensors.rsi_divergence?.series);
+  const accelByTime = pointMap(moment.sensors.rsi_acceleration?.series);
+  const rsiByTime = pointMap(moment.sensors.rsi_5_level?.series);
   const outcomes = [];
 
   for (let i = 0; i < bars.length - MEMORY_HORIZON_BARS; i++) {
@@ -241,7 +241,7 @@ function driveAt(desiredAction, belief, memory) {
   };
 }
 
-function riskAt(market, desiredAction) {
+function riskAt(moment, desiredAction) {
   if (!isEntryAction(desiredAction)) {
     return {
       side: desiredAction,
@@ -254,7 +254,7 @@ function riskAt(market, desiredAction) {
     };
   }
 
-  const bars = (market.history || []).slice(-RISK_LOOKBACK_BARS - MEMORY_HORIZON_BARS);
+  const bars = (moment.history || []).slice(-RISK_LOOKBACK_BARS - MEMORY_HORIZON_BARS);
   const adverseMoves = [];
 
   for (let i = 0; i < bars.length - MEMORY_HORIZON_BARS; i++) {

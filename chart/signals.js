@@ -10,7 +10,7 @@ import {
 
 // User-facing signal catalog.
 //
-// Object key = signal id used by strategy.js, e.g. market.sensors.rsi_divergence.
+// Object key = signal id used by strategy.js, e.g. moment.sensors.rsi_divergence.
 // name       = chart label.
 // fn         = raw indicator/math function.
 // from+calc  = compound signal built from other signals at matching candle times.

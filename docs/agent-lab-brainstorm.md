@@ -138,10 +138,10 @@ Accepted return shapes:
 The browser now uses `chart/strategy.js` as the editable decision place:
 
 ```js
-export function decisionAt(market) {
-  const divergence = market.sensors.rsi_divergence?.value;
-  const accel = market.sensors.rsi_acceleration?.value;
-  const rsi = market.sensors.rsi_5_level?.value;
+export function decisionAt(moment) {
+  const divergence = moment.sensors.rsi_divergence?.value;
+  const accel = moment.sensors.rsi_acceleration?.value;
+  const rsi = moment.sensors.rsi_5_level?.value;
 
   if (divergence > 0 && accel > 0 && rsi < 0) {
     return {
@@ -159,7 +159,7 @@ export function decisionAt(market) {
 }
 ```
 
-The same sensors listed in `chart/signals.js` are drawn as lower chart panes and are available inside `market.sensors`. The decision action stays discrete:
+The same sensors listed in `chart/signals.js` are drawn as lower chart panes and are available inside `moment.sensors`. A `moment` means chart location plus current sensor vibe. The decision action stays discrete:
 
 - `LONG`: long-side setup is actionable.
 - `SHORT`: short-side setup is actionable.
