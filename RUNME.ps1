@@ -9,6 +9,12 @@
   from SQLite and runs two causal spring-mass agents (Physics + Pursuit) plus
   a manual paper-trading layer — all in the browser, no live broker connection.
 
+  APP ROOMS
+  ---------
+  Watch     Explore candles, indicators, and the chart workbench.
+  Arena     View the experiment story.
+  Evidence  Inspect trace cases, anomaly reports, and raw event logs.
+
   WHAT THIS SCRIPT DOES (in order)
   ---------------------------------
   1. Verifies Python 3.9+
