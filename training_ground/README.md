@@ -5,7 +5,7 @@ Small modular experiment runner for trying many agent/stress combinations.
 Current spike:
 
 ```powershell
-node training_ground\run-experiment.js --agent coin-flip --runs 100 --workers 4 --limit 20000 --name coinflip-stress
+node training_ground\run-experiment.js --agent coin-flip --runs 100 --workers 1 --limit 20000 --name coinflip-stress
 ```
 
 Quick interactive runner:
@@ -16,6 +16,11 @@ Quick interactive runner:
 .\RUN-GRIND.ps1 -Runs 32 -Workers 4 -Limit 5000 -Name coinflip-play
 .\RUN-GRIND.ps1 -Runs 1 -Workers 1 -Limit 300 -DecisionTrace all -Stream
 ```
+
+Worker rule:
+
+- Use `-Workers 1` for debugging, visual replay, stream logs, and any future shared/group-memory work.
+- Use `-Workers 4` only for isolated throughput runs. Current workers do not share mutable state, but timing fields such as `decisionMs` are expected to differ.
 
 Outputs:
 

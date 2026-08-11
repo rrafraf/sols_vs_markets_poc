@@ -2,7 +2,7 @@
  * Lego-style experiment command.
  *
  * Example:
- *   node training_ground/run-experiment.js --agent coin-flip --runs 100 --workers 4 --limit 20000
+ *   node training_ground/run-experiment.js --agent coin-flip --runs 100 --workers 1 --limit 20000
  */
 
 "use strict";
@@ -22,7 +22,7 @@ function parseArgs(argv) {
     symbol: "TSLA",
     timeframe: "1Min",
     runs: 32,
-    workers: 4,
+    workers: 1,
     limit: 20000,
     from: "",
     to: "",
