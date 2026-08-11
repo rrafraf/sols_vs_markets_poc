@@ -1,5 +1,7 @@
 # Backlog
 
+For the short chronological "why did we decide this?" archive, see `docs/decision-log.md`.
+
 ## Priority 0 - keep the system small
 
 - Do not add more hidden agent psychology inside `chart/strategy.js`.
