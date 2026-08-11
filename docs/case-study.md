@@ -4,6 +4,8 @@
 
 This project is a local market-replay lab for TSLA one-minute candles. It runs repeatable trading experiments, records what each simulated trader knew and did, and exposes suspicious execution cases in an evidence room instead of hiding them inside aggregate backtest stats.
 
+For project vocabulary, see `docs/glossary.md`.
+
 ## Problem
 
 Backtests can look precise while relying on assumptions that the data cannot prove.
