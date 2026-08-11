@@ -260,3 +260,23 @@ Result:
 
 - The trace panel now shows story cards for what happened, why OHLC makes it ambiguous, what the simulator did, and what the safety rule does.
 - The raw event rows remain visible for verification.
+
+## 2026-08-11 - Keep one app with modes
+
+Decision:
+
+- Do not split Price Watch, Grind Arena, and Trace Evidence into separate sites yet.
+- Add app modes inside the same local app:
+  - Watch: chart and indicator workbench.
+  - Arena: presentation surface for the experiment story.
+  - Evidence: raw trace rows for verification.
+
+Why:
+
+- The chart, candles, grinder output, and trace evidence share the same data.
+- A presentable demo needs narrative first, but the raw evidence must remain one click away.
+
+Result:
+
+- `RUNME.ps1` can still start the same app.
+- The app now has a structure suitable for both debugging and explaining the work.

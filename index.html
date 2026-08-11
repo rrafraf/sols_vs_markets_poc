@@ -49,9 +49,23 @@
       letter-spacing: 0.04em;
     }
 
-    #status {
+    #status,
+    #mode-status {
       color: var(--muted);
       font-size: 0.8rem;
+    }
+
+    .mode-tabs {
+      display: flex;
+      gap: 0.25rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .mode-tabs button[aria-pressed="true"] {
+      background: var(--accent);
+      border-color: var(--blue);
+      color: white;
     }
 
     .controls {
@@ -255,6 +269,68 @@
       border-top: 1px solid #5c2b2b;
     }
 
+    #arena-brief {
+      border-bottom: 1px solid var(--border);
+      background:
+        radial-gradient(circle at top left, rgba(88, 166, 255, 0.14), transparent 34rem),
+        #0d1117;
+      padding: 0.8rem 1rem;
+    }
+
+    .arena-title {
+      display: flex;
+      gap: 1rem;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-bottom: 0.7rem;
+    }
+
+    .arena-title h2 {
+      font-size: 1rem;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.25rem;
+    }
+
+    .arena-title p {
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.45;
+      max-width: 760px;
+    }
+
+    .arena-badge {
+      border: 1px solid var(--border);
+      background: #10151d;
+      color: var(--muted);
+      padding: 0.35rem 0.55rem;
+      font-size: 0.72rem;
+    }
+
+    .arena-flow {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.5rem;
+    }
+
+    .arena-step {
+      border: 1px solid var(--border);
+      background: rgba(16, 21, 29, 0.92);
+      padding: 0.6rem;
+    }
+
+    .arena-step strong {
+      display: block;
+      margin-bottom: 0.25rem;
+      font-size: 0.78rem;
+    }
+
+    .arena-step span {
+      color: var(--muted);
+      font-size: 0.72rem;
+      line-height: 1.4;
+    }
+
     #trace-panel {
       border-top: 1px solid var(--border);
       background: #0f141b;
@@ -372,6 +448,10 @@
     }
 
     @media (max-width: 900px) {
+      .arena-flow {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
       #trace-panel {
         grid-template-columns: 1fr;
         max-height: 620px;
@@ -382,13 +462,52 @@
       }
     }
 
+    @media (max-width: 560px) {
+      .arena-flow {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    body[data-mode="watch"] #arena-brief,
+    body[data-mode="watch"] #trace-panel {
+      display: none;
+    }
+
+    body[data-mode="arena"] .debug-controls {
+      display: none;
+    }
+
+    body[data-mode="evidence"] main,
+    body[data-mode="evidence"] #hist-wrap,
+    body[data-mode="evidence"] .debug-controls,
+    body[data-mode="evidence"] footer,
+    body[data-mode="evidence"] #arena-brief {
+      display: none;
+    }
+
+    body[data-mode="evidence"] #trace-panel {
+      flex: 1;
+      max-height: none;
+      grid-template-columns: minmax(360px, 0.8fr) minmax(460px, 1.4fr);
+    }
+
+    body[data-mode="evidence"] .trace-list {
+      max-height: calc(100vh - 280px);
+    }
+
   </style>
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 
-<body>
+<body data-mode="arena">
   <header>
-    <h1>PRICE WATCH</h1>
+    <h1 id="app-title">GRIND ARENA</h1>
+    <nav class="mode-tabs" aria-label="app mode">
+      <button data-mode-button="watch" type="button">Watch</button>
+      <button data-mode-button="arena" type="button">Arena</button>
+      <button data-mode-button="evidence" type="button">Evidence</button>
+    </nav>
+    <span id="mode-status">story + replay</span>
     <span id="status">starting…</span>
     <div class="controls">
       <button id="btn-start" title="First bar of loaded window">⏮</button>
@@ -434,6 +553,38 @@
       <div id="hist-range"></div>
     </div>
   </div>
+
+  <section id="arena-brief" aria-label="grind arena explanation">
+    <div class="arena-title">
+      <div>
+        <h2>Market replay as an inspectable experiment</h2>
+        <p>
+          A contestant sees candle data, makes a LONG/SHORT/WAIT decision, and the simulator applies execution
+          rules: latency, slippage, fills, exits, and safety checks. The point is not that the coin-flip player is
+          clever. The point is that even a dumb baseline can expose whether the simulator preserves causality.
+        </p>
+      </div>
+      <div class="arena-badge">baseline: seeded coin flip · data: TSLA 1Min OHLC</div>
+    </div>
+    <div class="arena-flow">
+      <div class="arena-step">
+        <strong>1. Candle context</strong>
+        <span>The chart shows what the player could know at that moment, not the future.</span>
+      </div>
+      <div class="arena-step">
+        <strong>2. Decision booth</strong>
+        <span>The player chooses an intent. In this demo, it is intentionally dumb: seeded randomness.</span>
+      </div>
+      <div class="arena-step">
+        <strong>3. Execution model</strong>
+        <span>The sim turns intent into fills and exits with declared stress: latency, slippage, misses.</span>
+      </div>
+      <div class="arena-step">
+        <strong>4. Evidence</strong>
+        <span>If a result depends on missing intrabar order, it is flagged instead of silently trusted.</span>
+      </div>
+    </div>
+  </section>
 
   <main>
     <div id="chart"></div>
