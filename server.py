@@ -7,6 +7,7 @@ are persisted in SQLite and served to the browser from the same origin.
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import mimetypes
 import os
@@ -25,6 +26,7 @@ ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "data"
 DB_PATH = DATA_DIR / "market.db"
 OUTPUT_DIR = ROOT / "output"
+TRAINING_GROUND_DIR = OUTPUT_DIR / "training-ground"
 DEFAULT_SYMBOL = "TSLA"
 DEFAULT_FROM = "2018-01-01"
 DEFAULT_TO = "2024-12-31"
@@ -738,6 +740,86 @@ def agent_grind_payload() -> dict[str, Any]:
     }
 
 
+def clean_training_name(name: str) -> str:
+    cleaned = "".join(ch for ch in name if ch.isalnum() or ch in "._-").strip(".-_")
+    return cleaned or "latest"
+
+
+def training_file(base: str, suffix: str) -> Path:
+    path = TRAINING_GROUND_DIR / f"{clean_training_name(base)}{suffix}"
+    resolved = path.resolve()
+    root = TRAINING_GROUND_DIR.resolve()
+    if root not in resolved.parents and resolved != root:
+        raise RuntimeError("Training output path escaped output/training-ground.")
+    return path
+
+
+def read_training_json(base: str) -> dict[str, Any]:
+    path = training_file(base, ".json")
+    if not path.exists():
+        raise RuntimeError(f"No training output found for {clean_training_name(base)}. Run .\\RUN-GRIND.ps1 first.")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def read_training_rows(base: str, suffix: str, run: str | None = None, limit: int = 5000) -> list[dict[str, Any]]:
+    path = training_file(base, suffix)
+    if not path.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8", newline="") as file:
+        for row in csv.DictReader(file):
+            if run is None or row.get("run") == run:
+                rows.append(row)
+                if len(rows) >= limit:
+                    break
+    return rows
+
+
+def training_runs_payload(base: str = "latest") -> dict[str, Any]:
+    summary = read_training_json(base)
+    runs = summary.get("runs", [])
+    return {
+        "name": clean_training_name(base),
+        "manifest": summary.get("manifest", {}),
+        "agent": summary.get("agent"),
+        "bars": summary.get("bars"),
+        "from": summary.get("from"),
+        "to": summary.get("to"),
+        "runCount": summary.get("runCount"),
+        "averageNetReturn": summary.get("averageNetReturn"),
+        "medianNetReturn": summary.get("medianNetReturn"),
+        "p05NetReturn": summary.get("p05NetReturn"),
+        "p95NetReturn": summary.get("p95NetReturn"),
+        "traceCounts": summary.get("traceCounts", {}),
+        "best": summary.get("best"),
+        "worst": summary.get("worst"),
+        "runs": runs,
+    }
+
+
+def training_run_payload(base: str = "latest", run: str | None = None) -> dict[str, Any]:
+    summary = read_training_json(base)
+    selected = run
+    if selected is None:
+        best = summary.get("best") or {}
+        selected = str(best.get("run", "0"))
+
+    run_summary = next(
+        (item for item in summary.get("runs", []) if str(item.get("run")) == selected),
+        None,
+    )
+    return {
+        "name": clean_training_name(base),
+        "manifest": summary.get("manifest", {}),
+        "run": selected,
+        "summary": run_summary,
+        "events": read_training_rows(base, ".events.csv", run=selected, limit=6000),
+        "decisions": read_training_rows(base, ".decisions.csv", run=selected, limit=6000),
+        "trades": read_training_rows(base, ".trades.csv", run=selected, limit=6000),
+        "anomalies": read_training_rows(base, ".anomalies.csv", run=selected, limit=6000),
+    }
+
+
 class LabHandler(SimpleHTTPRequestHandler):
     server_version = "TSLAPhysicsLab/1.0"
 
@@ -808,6 +890,17 @@ class LabHandler(SimpleHTTPRequestHandler):
 
             if parsed.path == "/api/agent/grind":
                 return self._json(agent_grind_payload())
+
+            if parsed.path == "/api/training/runs":
+                query = urllib.parse.parse_qs(parsed.query)
+                name = query.get("name", ["latest"])[0]
+                return self._json(training_runs_payload(name))
+
+            if parsed.path == "/api/training/run":
+                query = urllib.parse.parse_qs(parsed.query)
+                name = query.get("name", ["latest"])[0]
+                run = query.get("run", [None])[0]
+                return self._json(training_run_payload(name, run))
 
             return self._json({"error": "Unknown API route"}, HTTPStatus.NOT_FOUND)
         except (RuntimeError, sqlite3.Error, ValueError) as error:

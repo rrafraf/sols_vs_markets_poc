@@ -54,7 +54,22 @@ export function createDataApi(cfg) {
     return res.json();
   }
 
-  return { fetchMeta, fetchBars, fetchAgentGrind };
+  async function fetchTrainingRuns(name = "latest") {
+    const params = new URLSearchParams({ name });
+    const res = await fetch(`/api/training/runs?${params}`);
+    if (!res.ok) return null;
+    return res.json();
+  }
+
+  async function fetchTrainingRun({ name = "latest", run } = {}) {
+    const params = new URLSearchParams({ name });
+    if (run != null) params.set("run", String(run));
+    const res = await fetch(`/api/training/run?${params}`);
+    if (!res.ok) return null;
+    return res.json();
+  }
+
+  return { fetchMeta, fetchBars, fetchAgentGrind, fetchTrainingRuns, fetchTrainingRun };
 }
 
 function normalizeBar(b) {

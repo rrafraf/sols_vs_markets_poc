@@ -255,6 +255,95 @@
       border-top: 1px solid #5c2b2b;
     }
 
+    #trace-panel {
+      border-top: 1px solid var(--border);
+      background: #0f141b;
+      display: grid;
+      grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 1.4fr);
+      gap: 0.65rem;
+      padding: 0.65rem 1rem;
+      max-height: 260px;
+      overflow: hidden;
+    }
+
+    .trace-head {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.45rem;
+    }
+
+    .trace-head strong {
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+    }
+
+    #trace-status,
+    #trace-summary,
+    #trace-bookmark,
+    #trace-story {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    #trace-story {
+      line-height: 1.4;
+      margin-bottom: 0.45rem;
+    }
+
+    .trace-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      overflow: auto;
+      max-height: 170px;
+      border: 1px solid var(--border);
+      background: #0d1117;
+    }
+
+    .trace-list-title {
+      color: var(--muted);
+      font-size: 0.68rem;
+      margin: 0.2rem 0;
+    }
+
+    .trace-row {
+      display: grid;
+      grid-template-columns: 52px 132px 150px 70px minmax(160px, 1fr);
+      gap: 0.45rem;
+      width: 100%;
+      text-align: left;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      border-bottom: 1px solid #1f2630;
+      padding: 0.24rem 0.35rem;
+      color: var(--text);
+      font-size: 0.68rem;
+    }
+
+    .trace-row:hover {
+      background: #161b22;
+    }
+
+    .trace-anomaly {
+      color: #f0b429;
+    }
+
+    .trace-empty {
+      color: var(--muted);
+      padding: 0.4rem;
+      font-size: 0.72rem;
+    }
+
+    @media (max-width: 900px) {
+      #trace-panel {
+        grid-template-columns: 1fr;
+        max-height: 420px;
+      }
+    }
+
   </style>
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
@@ -311,6 +400,33 @@
   <main>
     <div id="chart"></div>
   </main>
+
+  <section id="trace-panel" aria-label="training ground trace replay">
+    <div>
+      <div class="trace-head">
+        <strong>TRACE REPLAY</strong>
+        <button id="trace-refresh">reload</button>
+        <label>
+          run
+          <select id="trace-run"></select>
+        </label>
+        <span id="trace-status">—</span>
+      </div>
+      <div id="trace-summary">—</div>
+      <div class="trace-head" style="margin-top:0.45rem">
+        <button id="trace-prev">◀ interesting</button>
+        <button id="trace-next">interesting ▶</button>
+        <span id="trace-bookmark">—</span>
+      </div>
+      <div id="trace-story">—</div>
+      <div class="trace-list-title">anomalies</div>
+      <div id="trace-anomalies" class="trace-list"></div>
+    </div>
+    <div>
+      <div class="trace-list-title">events: who did what when</div>
+      <div id="trace-events" class="trace-list"></div>
+    </div>
+  </section>
 
   <footer>
     <div id="bar-info">—</div>

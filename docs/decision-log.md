@@ -226,3 +226,20 @@ Why:
 
 - Fast grind creates too much timeline to watch live.
 - Replay/time-zoom is the right way to inspect what happened.
+
+## 2026-08-11 - Add trace replay panel to the app
+
+Decision:
+
+- Add a first app-native trace replay panel instead of only describing the problem in docs.
+- The panel reads latest training-ground output through `/api/training/*`.
+
+Why:
+
+- Long lists of decisions are hard to understand.
+- We need to see "who did what when" for one run and jump the chart to event/anomaly timestamps.
+
+Result:
+
+- The app can show run summary, anomalies, event rows, and a compact same-candle story.
+- This is not the final visual debugger; it is the first usable replay surface.

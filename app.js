@@ -10,6 +10,7 @@ import { createHistoryTrack } from "./chart/history-track.js";
 import { createTradeOverlay } from "./chart/trade-overlay.js";
 import { agentSensors } from "./chart/agent-brain.js";
 import { createUi } from "./chart/ui.js";
+import { createTracePanel } from "./chart/trace-panel.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -21,6 +22,7 @@ const playback = createPlayback({ $, windowLoader });
 const historyTrack = createHistoryTrack({ $, windowLoader, playback });
 const tradeOverlay = createTradeOverlay({ dataApi, priceChart, windowLoader });
 const ui = createUi({ $, cfg: CFG, agent, priceChart, windowLoader, playback, historyTrack, tradeOverlay });
+const tracePanel = createTracePanel({ $, dataApi, windowLoader });
 
 async function main() {
   try {
@@ -51,6 +53,7 @@ async function main() {
 
     await windowLoader.loadLatestWindow();
     ui.setIndex(windowLoader.lastIndex());
+    await tracePanel.init();
   } catch (err) {
     ui.showFatal(err);
   }
