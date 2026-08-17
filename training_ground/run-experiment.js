@@ -14,6 +14,7 @@ const { Worker, isMainThread, parentPort, workerData } = require("worker_threads
 
 const ROOT = path.resolve(__dirname, "..");
 const OUTPUT_DIR = path.join(ROOT, "output", "training-ground");
+const { runTargetSignalsCli } = require("./signal-runner");
 
 function parseArgs(argv) {
   const args = {
@@ -186,10 +187,29 @@ function cleanAction(value) {
   return ["LONG", "SHORT", "HOLD", "WAIT", "EXIT"].includes(raw) ? raw : "WAIT";
 }
 
+const EVENT_PHASE_BY_TYPE = Object.freeze({
+  RUN_START: "run-summary",
+  ORDER_SUBMITTED: "queue",
+  ORDER_FILLED: "fill",
+  ORDER_MISSED: "fill",
+  EXIT_DECISION: "exit",
+  EXIT: "settle",
+  DECISION_BLOCKED: "guard",
+  RUN_SUMMARY: "run-summary"
+});
+
+function phaseForEvent(type) {
+  return EVENT_PHASE_BY_TYPE[type] || "event";
+}
+
 function pushEvent(events, args, event) {
-  events.push(event);
+  const row = {
+    ...event,
+    phase: event.phase || phaseForEvent(event.type)
+  };
+  events.push(row);
   if (isTruthy(args.streamTrace) && traceEnabled(args, "events")) {
-    console.log(JSON.stringify({ trace: "EVENT", ...event }));
+    console.log(JSON.stringify({ trace: "EVENT", ...row }));
   }
 }
 
@@ -690,6 +710,20 @@ function buildManifest(args, candles, generatedAt, command) {
       decisionTrace: args.decisionTrace,
       streamTrace: isTruthy(args.streamTrace)
     },
+    executionModel: {
+      version: "lifecycle-scaffold-v1",
+      eventPhaseField: "phase",
+      phases: ["observe", "decide", "queue", "fill", "manage", "exit", "settle", "guard", "run-summary"],
+      decisionTiming: "agent observes candle T and may queue an entry decision after that candle",
+      entryFillTiming: "entry orders fill at candle T+1+stress.entryDelayBars open when not missed",
+      exitTiming: "open positions are checked against the current candle OHLC range during replay",
+      intrabarPriority: "stop is chosen before take when both are reachable in one OHLC candle",
+      sameCandleEntryExit: {
+        status: "detected-as-anomaly-not-fixed",
+        anomalyType: "ENTRY_EXIT_SAME_CANDLE",
+        note: "same-candle entry/exit can still occur after a fill candle crosses stop/take; this scaffold only labels lifecycle phases"
+      }
+    },
     stress: {
       minLatencyBars: args.minLatencyBars,
       maxLatencyBars: args.maxLatencyBars,
@@ -820,7 +854,7 @@ function renderEventCsv(events) {
   return renderRows([
     "run", "agentId", "type", "index", "time", "knownUntil", "action", "side",
     "reason", "price", "pnl", "equity", "position", "decisionIndex", "fillIndex",
-    "delayBars", "slippageBps", "barsHeld", "details"
+    "delayBars", "slippageBps", "barsHeld", "details", "phase"
   ], events);
 }
 
@@ -932,6 +966,11 @@ function cleanName(name) {
 
 async function runMain() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.mode === "target-signals") {
+    runTargetSignalsCli(args, { root: ROOT });
+    return;
+  }
+
   if (args.agent !== "coin-flip") {
     throw new Error(`Unknown agent: ${args.agent}`);
   }

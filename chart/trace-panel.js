@@ -122,12 +122,15 @@ export function createTracePanel({ $, dataApi, windowLoader }) {
   function renderEventRows(events) {
     if (!events.length) return `<div class="trace-empty">no events</div>`;
     return events.slice(0, 180).map(event => `
-      <button class="trace-row" data-trace-time="${esc(event.time)}" type="button">
-        <span>${esc(event.index)}</span>
+      <button class="trace-row trace-event-row" data-event-type="${esc(event.type)}" data-phase="${esc(event.phase || "")}" data-trace-time="${esc(event.time)}" type="button">
+        <span class="trace-index">#${esc(event.index)}</span>
         <span>${shortTime(event.time)}</span>
-        <span>${esc(event.type)}</span>
-        <span>${esc(event.action || "")}</span>
-        <span>${esc(event.reason || "")}</span>
+        <span>
+          <b class="event-chip">${esc(eventLabel(event.type))}</b>
+          <small>${esc(event.phase ? `${event.phase} / ${event.type}` : event.type)}</small>
+        </span>
+        <span>${esc(eventActor(event))}</span>
+        <span>${esc(humanEvent(event))}</span>
       </button>
     `).join("");
   }
@@ -180,24 +183,51 @@ export function createTracePanel({ $, dataApi, windowLoader }) {
     const exit = sameIndexEvents.find(event => event.type === "EXIT");
     const blocked = sameIndexEvents.find(event => event.type === "DECISION_BLOCKED");
     const details = sameCandleDetails(evidence);
+    const side = details.side || filled?.side || submitted?.side || "unknown";
+    const exitReason = details.exitReason || exit?.reason || "unknown";
+    const title = evidenceTitle(evidence, filled, exit);
 
     return `
       <div class="case-report">
-        ${caseTurn(1, "Decision", submitted
-          ? `${submitted.agentId} asked for ${submitted.action}. The order was scheduled for candle ${submitted.fillIndex}.`
-          : `${evidence.agentId} had an entry order before candle ${idx}.`)}
-        ${caseTurn(2, "Fill", filled
-          ? `The simulator opened ${filled.side} at ${money(filled.price)} on ${shortTime(filled.time)}.`
-          : `The simulator opened a position on candle ${idx}.`)}
-        ${caseTurn(3, "Mayday", exit
-          ? `The same candle also triggered ${exit.reason} exit, closing at ${money(exit.price)} for ${money(exit.pnl)}.`
-          : `The same candle also triggered an exit.`)}
-        ${caseTurn(4, "Inspection", `Candle ${idx} is OHLC data. It has open/high/low/close, but not the true order inside the minute.`)}
-        ${caseTurn(5, "Report", `Responsible layer: execution model + missing intrabar order, not the trader. Side: ${details.side || filled?.side || "unknown"}. Exit reason: ${details.exitReason || exit?.reason || "unknown"}.`)}
-        ${caseTurn(6, "Measures", blocked
-          ? `Recorded anomaly and blocked another same-candle decision after the collision.`
-          : `Recorded anomaly for inspection.`)}
-        <div class="case-status"><strong>Status:</strong> contained and visible. Full fix still means declaring stricter execution phases.</div>
+        <div class="case-hero">
+          <div>
+            <div class="case-kicker">CASE ${selectedEvidenceIndex + 1} · ${esc(evidence.type)}</div>
+            <h3>${esc(title)}</h3>
+            <p>${esc(evidence.message || "The trace found an execution event that needs inspection.")}</p>
+          </div>
+          <div class="case-verdict">
+            <span>current verdict</span>
+            <strong>${blocked ? "contained" : "visible"}</strong>
+          </div>
+        </div>
+        <div class="case-facts">
+          ${caseFact("agent", evidence.agentId || submitted?.agentId || "?")}
+          ${caseFact("candle", `#${idx}`)}
+          ${caseFact("time", shortTime(evidence.time))}
+          ${caseFact("side", side)}
+          ${caseFact("exit", exitReason)}
+          ${caseFact("pnl", exit ? money(exit.pnl) : "?")}
+        </div>
+        <div class="case-timeline" aria-label="case timeline">
+          ${caseStep(1, "intent", submitted
+            ? `${submitted.agentId} asked for ${submitted.action}. Fill target: candle ${submitted.fillIndex}.`
+            : `${evidence.agentId} had an entry order before candle ${idx}.`, "intent")}
+          ${caseStep(2, "fill", filled
+            ? `Position opened at ${money(filled.price)} on ${shortTime(filled.time)}.`
+            : `The simulator opened a position on candle ${idx}.`, "fill")}
+          ${caseStep(3, "collision", exit
+            ? `The same candle also closed it by ${exit.reason}, at ${money(exit.price)}.`
+            : "The same candle also triggered an exit.", "danger")}
+          ${caseStep(4, "inspection", `OHLC gives open/high/low/close, but not the true order of events inside the minute.`, "inspect")}
+          ${caseStep(5, "responsibility", `Layer: execution model / intrabar assumptions. Not a trader-brain bug.`, "report")}
+          ${caseStep(6, "measure", blocked
+            ? "Anomaly recorded; later same-candle decision was blocked."
+            : "Anomaly recorded for inspection.", "measure")}
+        </div>
+        <div class="case-status">
+          <strong>Meaning:</strong>
+          The trace is useful because it makes this uncertainty explicit instead of silently scoring the trade as clean.
+        </div>
       </div>
     `;
   }
@@ -245,11 +275,23 @@ export function createTracePanel({ $, dataApi, windowLoader }) {
     ].join("");
   }
 
-  function caseTurn(number, title, text) {
+  function caseStep(number, title, text, tone) {
     return `
-      <div class="case-turn">
-        <strong>${number}.</strong>
-        <div><strong>${esc(title)}</strong><br><span>${esc(text)}</span></div>
+      <div class="case-step" data-tone="${esc(tone)}">
+        <strong>${number}</strong>
+        <div>
+          <span>${esc(title)}</span>
+          <p>${esc(text)}</p>
+        </div>
+      </div>
+    `;
+  }
+
+  function caseFact(label, value) {
+    return `
+      <div class="case-fact">
+        <span>${esc(label)}</span>
+        <strong>${esc(value)}</strong>
       </div>
     `;
   }
@@ -273,7 +315,7 @@ export function createTracePanel({ $, dataApi, windowLoader }) {
 
   function humanEvent(event) {
     if (event.type === "ORDER_SUBMITTED") {
-      return `${event.agentId} asked for ${event.action}; fill scheduled for candle ${event.fillIndex}.`;
+      return `${eventActor(event)} asked for ${event.action}; fill scheduled for candle ${event.fillIndex}.`;
     }
     if (event.type === "ORDER_FILLED") {
       return `${event.side} opened at ${money(event.price)}.`;
@@ -288,6 +330,32 @@ export function createTracePanel({ $, dataApi, windowLoader }) {
       return `new decision blocked: ${event.reason}.`;
     }
     return `${event.type}: ${event.action || event.reason || ""}`;
+  }
+
+  function eventActor(event) {
+    return event.agentId || event.side || event.action || "";
+  }
+
+  function eventLabel(type) {
+    if (type === "ORDER_SUBMITTED") return "intent";
+    if (type === "ORDER_FILLED") return "fill";
+    if (type === "EXIT_DECISION") return "exit signal";
+    if (type === "EXIT") return "exit";
+    if (type === "DECISION_BLOCKED") return "blocked";
+    return String(type || "event").toLowerCase().replaceAll("_", " ");
+  }
+
+  function evidenceTitle(evidence, filled, exit) {
+    if (evidence.type === "ENTRY_EXIT_SAME_CANDLE") {
+      return "Trade opened and closed inside one candle";
+    }
+    if (evidence.type === "INTRABAR_EXIT_AMBIGUITY") {
+      return "Exit depends on unknown intrabar order";
+    }
+    if (filled && exit) {
+      return "Execution needs inspection";
+    }
+    return "Trace anomaly";
   }
 
   function sameCandleDetails(anomaly) {

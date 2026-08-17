@@ -179,6 +179,23 @@ Related commit:
 
 - `f52bbf6 Add same-candle execution reproducer`
 
+## 2026-08-12 - Add lifecycle phase metadata before execution rewrite
+
+Decision:
+
+- Add a `phase` label to training-ground events.
+- Add manifest metadata describing the current execution model and its known same-candle caveat.
+
+Why:
+
+- The trace UI needs to distinguish queue, fill, exit, settle, guard, and run-summary moments without inferring everything from event names.
+- This is a conservative observability scaffold, not the full execution-physics rewrite.
+
+Result:
+
+- Event CSV output includes a `phase` column.
+- Same-candle entry/exit remains detected as `ENTRY_EXIT_SAME_CANDLE`, not silently treated as fixed.
+
 ## Open decision - Define execution physics
 
 Problem:

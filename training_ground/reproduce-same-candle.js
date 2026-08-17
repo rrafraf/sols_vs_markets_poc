@@ -65,6 +65,7 @@ const report = {
   events: result.events.map(e => ({
     index: e.index,
     time: e.time,
+    phase: e.phase,
     type: e.type,
     action: e.action,
     reason: e.reason,

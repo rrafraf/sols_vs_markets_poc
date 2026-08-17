@@ -25,6 +25,7 @@ Every experiment output should include a run manifest:
 | `agent` | Agent name and version/config. |
 | `seed` | Random seed. |
 | `workers` | Parallel worker count. |
+| `executionModel` | Declared replay timing, lifecycle phases, and known execution-model caveats. |
 | `stress` | Latency, slippage, missed order settings. |
 | `costs` | Fees/spread/slippage model if separate. |
 | `exitRules` | Stop, take, max hold, or strategy exits. |
@@ -71,6 +72,7 @@ All event-like rows should share these base fields:
 | `index` | Candle index known at the time. |
 | `time` | Candle timestamp known at the time. |
 | `type` | Event type. |
+| `phase` | Lifecycle label such as `queue`, `fill`, `exit`, `settle`, `guard`, or `run-summary`. |
 | `action` | LONG, SHORT, HOLD, WAIT, EXIT, MISS, etc. |
 | `reason` | Short machine-readable reason. |
 | `price` | Price used if relevant. |
@@ -89,6 +91,17 @@ Recommended event types:
 - `STATE_UPDATED`
 - `RUN_SUMMARY`
 - `ANOMALY`
+
+Current runner phase labels are an additive scaffold, not the full execution-physics fix:
+
+- `ORDER_SUBMITTED` -> `queue`
+- `ORDER_FILLED` / `ORDER_MISSED` -> `fill`
+- `EXIT_DECISION` -> `exit`
+- `EXIT` -> `settle`
+- `DECISION_BLOCKED` -> `guard`
+- `RUN_START` / `RUN_SUMMARY` -> `run-summary`
+
+Observation/decision/manage phases may still be represented by decision trace rows or implicit replay steps until the stricter execution model is chosen.
 
 ## Decision trace schema
 

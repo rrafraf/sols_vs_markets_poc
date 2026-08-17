@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-14T18:38:59.277Z",
+  "northStar": "Hell Bench - a universal trading-idea lie detector.",
+  "tasks": [
+    {
+      "id": "hell-bench-001",
+      "title": "Build first hell-bench command/report",
+      "status": "todo",
+      "agent": "",
+      "scope": [
+        "training_ground/hell-bench.js",
+        "docs/current-state.md"
+      ],
+      "notes": [
+        "Run current candidate(s) and coin-flip through a visible PASS/FAIL/? scoreboard."
+      ],
+      "updatedAt": "2026-08-12T00:00:00.000Z"
+    },
+    {
+      "id": "hell-bench-002",
+      "title": "Add deterministic replay check",
+      "status": "todo",
+      "agent": "",
+      "scope": [
+        "training_ground/hell-bench.js",
+        "training_ground/run-experiment.js"
+      ],
+      "notes": [
+        "Same seed and same args should produce comparable stable outputs."
+      ],
+      "updatedAt": "2026-08-12T00:00:00.000Z"
+    },
+    {
+      "id": "hell-bench-003",
+      "title": "Add fee/slippage/PnL assertion cases",
+      "status": "todo",
+      "agent": "",
+      "scope": [
+        "training_ground/hell-bench.js",
+        "training_ground/run-experiment.js"
+      ],
+      "notes": [
+        "Use tiny synthetic candles with exact expected numbers."
+      ],
+      "updatedAt": "2026-08-12T00:00:00.000Z"
+    },
+    {
+      "id": "hell-bench-004",
+      "title": "Design universal candidate adapter",
+      "status": "todo",
+      "agent": "",
+      "scope": [
+        "training_ground/",
+        "docs/current-state.md"
+      ],
+      "notes": [
+        "Make imported ideas and local agents comparable through one decide(moment) style boundary."
+      ],
+      "updatedAt": "2026-08-12T00:00:00.000Z"
+    },
+    {
+      "id": "hell-bench-005",
+      "title": "Add repo-owned agent communication board",
+      "status": "done",
+      "agent": "codex-main",
+      "scope": [
+        ".agents/README.md",
+        "docs/agent-board.json",
+        "scripts/agent-board.js",
+        "docs/current-state.md"
+      ],
+      "notes": [
+        "Scaffold added for cheap multi-agent handoff.",
+        "Verified list/show/add/update paths."
+      ],
+      "updatedAt": "2026-08-12T19:20:42.663Z"
+    },
+    {
+      "id": "hell-bench-006",
+      "title": "Implement target-position-v1 muni CLI seam",
+      "status": "todo",
+      "agent": "",
+      "scope": [
+        "training_ground/run-experiment.js",
+        "training_ground/signal-runner.js"
+      ],
+      "notes": [
+        "Follow D:\\Documents\\GitHub\\_trading_sims\\benchmark\\MUNI_BRIDGE_CONTRACT.md. Add --mode target-signals --bars --signals --policy --out; no _trading_sims adapter until seam exists."
+      ],
+      "updatedAt": "2026-08-14T18:38:59.262Z"
+    }
+  ]
+}

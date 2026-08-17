@@ -1,0 +1,4 @@
+{"time":"2026-08-12T19:20:36.889Z","type":"add","taskId":"hell-bench-005","agent":"codex-main","title":"Add repo-owned agent communication board"}
+{"time":"2026-08-12T19:20:42.612Z","type":"note","agent":"codex-main","text":"Agent board scaffold created; future agents should read docs/current-state.md and docs/agent-board.json first."}
+{"time":"2026-08-12T19:20:42.666Z","type":"update","taskId":"hell-bench-005","status":"done","agent":"codex-main","note":"Verified list/show/add/update paths."}
+{"time":"2026-08-14T18:38:59.279Z","type":"add","taskId":"hell-bench-006","agent":"","title":"Implement target-position-v1 muni CLI seam"}

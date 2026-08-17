@@ -7,6 +7,7 @@ For the short chronological "why did we decide this?" archive, see `docs/decisio
 - Do not add more hidden agent psychology inside `chart/strategy.js`.
 - New concepts must first be named as testable variables: signal, modifier, state, memory, risk, size.
 - Every new variable needs a visible output or a clear experiment metric. If we cannot inspect it or measure it, it waits.
+- Recovered TradingView/Pine scripts must enter through `research/tradingview/` intake notes before any JS translation or training-ground experiment.
 
 ## Priority 1 - run the grind
 

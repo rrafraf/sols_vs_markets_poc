@@ -3,6 +3,8 @@ __pycache__/
 .playwright-cli/
 output/
 *.log
+.agents/board.json
+.agents/journal.jsonl
 data/*.db-shm
 data/*.db-wal
 /data
