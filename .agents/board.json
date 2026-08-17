@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-12T00:00:00.000Z",
+  "northStar": "Hell Bench - a universal trading-idea lie detector.",
+  "tasks": [
+    {
+      "id": "hell-bench-001",
+      "title": "Build first hell-bench command/report",
+      "status": "todo",
+      "agent": "",
+      "scope": [
+        "training_ground/hell-bench.js",
+        "docs/current-state.md"
+      ],
+      "notes": [
+        "Run current candidate(s) and coin-flip through a visible PASS/FAIL/? scoreboard."
+      ],
+      "updatedAt": "2026-08-12T00:00:00.000Z"
+    },
+    {
+      "id": "hell-bench-002",
+      "title": "Add deterministic replay check",
+      "status": "todo",
+      "agent": "",
+      "scope": [
+        "training_ground/hell-bench.js",
+        "training_ground/run-experiment.js"
+      ],
+      "notes": [
+        "Same seed and same args should produce comparable stable outputs."
+      ],
+      "updatedAt": "2026-08-12T00:00:00.000Z"
+    },
+    {
+      "id": "hell-bench-003",
+      "title": "Add fee/slippage/PnL assertion cases",
+      "status": "todo",
+      "agent": "",
+      "scope": [
+        "training_ground/hell-bench.js",
+        "training_ground/run-experiment.js"
+      ],
+      "notes": [
+        "Use tiny synthetic candles with exact expected numbers."
+      ],
+      "updatedAt": "2026-08-12T00:00:00.000Z"
+    },
+    {
+      "id": "hell-bench-004",
+      "title": "Design universal candidate adapter",
+      "status": "todo",
+      "agent": "",
+      "scope": [
+        "training_ground/",
+        "docs/current-state.md"
+      ],
+      "notes": [
+        "Make imported ideas and local agents comparable through one decide(moment) style boundary."
+      ],
+      "updatedAt": "2026-08-12T00:00:00.000Z"
+    }
+  ]
+}
+
